@@ -1,0 +1,31 @@
+# Symfony Swagger Bundle Configuration
+symfony_swagger:
+    # 啟用 Bundle
+    enabled: true
+
+    # OpenAPI Info 資訊
+    info:
+        title: 'API Documentation'
+        description: 'Automatically generated OpenAPI documentation'
+        version: '1.0.0'
+
+    # API Servers
+    servers:
+        - url: 'http://localhost:8000'
+          description: 'Development server'
+
+    # 輸出路徑(靜態生成時使用)
+    output_path: '%kernel.project_dir%/public/openapi.json'
+
+    # 生成模式: runtime (運行時生成,推薦)
+    generation_mode: runtime
+
+    # 快取設定
+    cache:
+        enabled: true
+        ttl: 3600  # 快取有效期(秒)
+
+    # 分析設定
+    analysis:
+        max_depth: 5  # DTO 遞迴分析最大深度
+        include_internal_routes: false  # 是否包含內部路由(_profiler, _wdt 等)
