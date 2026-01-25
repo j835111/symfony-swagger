@@ -58,6 +58,7 @@ return static function (ContainerConfigurator $container): void {
             service(SchemaRegistry::class),
             service('cache.app')->nullOnInvalid(),
             param('symfony_swagger.config'),
+            service('logger')->nullOnInvalid(),
         ])
     ;
 

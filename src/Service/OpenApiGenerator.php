@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -30,7 +31,8 @@ class OpenApiGenerator
         private readonly OperationDescriber $operationDescriber,
         private readonly SchemaRegistry $schemaRegistry,
         private readonly ?CacheInterface $cache = null,
-        private readonly array $config = []
+        private readonly array $config = [],
+        private readonly ?LoggerInterface $logger = null
     ) {
     }
 
@@ -147,7 +149,13 @@ class OpenApiGenerator
                     $operation = $this->operationDescriber->describe($reflection, $route);
                     $paths[$path][$httpMethod] = $operation;
                 } catch (\Throwable $e) {
-                    // 忽略錯誤,繼續處理其他路由
+                    $this->logger?->warning('Failed to describe route "{route}" ({method} {path}): {error}', [
+                        'route' => $routeName,
+                        'method' => $method,
+                        'path' => $path,
+                        'error' => $e->getMessage(),
+                        'exception' => $e,
+                    ]);
                     continue;
                 }
             }

@@ -190,8 +190,10 @@ symfony-swagger/
 │   │   ├── Configuration.php
 │   │   └── SymfonySwaggerExtension.php
 │   ├── Service/
-│   │   └── SwaggerGenerator.php
-│   ├── Attribute/
+│   │   ├── OpenApiGenerator.php
+│   │   ├── Describer/
+│   │   └── Registry/
+│   ├── Analyzer/
 │   └── Command/
 ├── config/
 │   └── services.php
