@@ -136,7 +136,7 @@ class OperationDescriber
     /**
      * 描述回應.
      *
-     * @return array<string, mixed>
+     * @return array<int|string, mixed>
      */
     private function describeResponses(ReflectionMethod $method): array
     {

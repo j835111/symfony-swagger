@@ -117,7 +117,7 @@ class AttributeReader
     /**
      * 從參數中取得特定 Attribute.
      *
-     * @template T
+     * @template T of object
      * @param class-string<T> $attributeClass
      * @return T|null
      */
