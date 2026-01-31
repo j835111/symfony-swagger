@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service\Describer;
 
-use ReflectionClass;
-use ReflectionException;
 use ReflectionMethod;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouterInterface;
@@ -22,6 +20,7 @@ class RouteDescriber
      *
      * @param RouterInterface $router Symfony Router
      * @param array<string, mixed> $config 設定選項
+     *
      * @return array<string, array<string, mixed>> 路由描述資訊
      */
     public function describe(RouterInterface $router, array $config = []): array
@@ -36,7 +35,7 @@ class RouteDescriber
             }
 
             $controller = $this->extractControllerCallable($route);
-            if ($controller === null) {
+            if (null === $controller) {
                 continue;
             }
 
@@ -44,7 +43,7 @@ class RouteDescriber
 
             try {
                 $reflectionMethod = $this->getReflectionMethod($controllerClass, $methodName);
-            } catch (ReflectionException $e) {
+            } catch (\ReflectionException $e) {
                 // 無法反射,跳過此路由
                 continue;
             }
@@ -90,14 +89,14 @@ class RouteDescriber
     {
         $controller = $route->getDefault('_controller');
 
-        if (!is_string($controller)) {
+        if (!\is_string($controller)) {
             return null;
         }
 
         // 格式: ClassName::methodName
         if (str_contains($controller, '::')) {
             $parts = explode('::', $controller, 2);
-            if (count($parts) === 2 && class_exists($parts[0])) {
+            if (2 === \count($parts) && class_exists($parts[0])) {
                 return [$parts[0], $parts[1]];
             }
         }
@@ -109,11 +108,13 @@ class RouteDescriber
      * 取得 ReflectionMethod.
      *
      * @param class-string $className
-     * @throws ReflectionException
+     *
+     * @throws \ReflectionException
      */
-    private function getReflectionMethod(string $className, string $methodName): ReflectionMethod
+    private function getReflectionMethod(string $className, string $methodName): \ReflectionMethod
     {
-        $reflectionClass = new ReflectionClass($className);
+        $reflectionClass = new \ReflectionClass($className);
+
         return $reflectionClass->getMethod($methodName);
     }
 }

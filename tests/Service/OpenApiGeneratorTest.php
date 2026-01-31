@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Tests\Service;
 
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
-use SymfonySwagger\Service\OpenApiGenerator;
-use SymfonySwagger\Service\Describer\RouteDescriber;
-use SymfonySwagger\Service\Describer\OperationDescriber;
-use SymfonySwagger\Service\Registry\SchemaRegistry;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\RouterInterface;
-use Symfony\Contracts\Cache\CacheInterface;
-use Psr\Log\LoggerInterface;
+use SymfonySwagger\Service\Describer\OperationDescriber;
+use SymfonySwagger\Service\Describer\RouteDescriber;
+use SymfonySwagger\Service\OpenApiGenerator;
+use SymfonySwagger\Service\Registry\SchemaRegistry;
 
 /**
  * Test case for OpenApiGenerator service.
@@ -59,7 +57,7 @@ class OpenApiGeneratorTest extends TestCase
             $this->schemaRegistry,
             null,
             $config,
-            null
+            null,
         );
     }
 

@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service\Describer;
 
-use ReflectionClass;
-use ReflectionMethod;
-use ReflectionNamedType;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
-use Symfony\Component\Routing\Attribute\Route as RouteAttribute;
 use Symfony\Component\Routing\Route;
 use SymfonySwagger\Analyzer\AttributeReader;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
@@ -23,7 +19,7 @@ class OperationDescriber
     public function __construct(
         private readonly AttributeReader $attributeReader,
         private readonly TypeAnalyzer $typeAnalyzer,
-        private readonly SchemaDescriber $schemaDescriber
+        private readonly SchemaDescriber $schemaDescriber,
     ) {
     }
 
@@ -32,7 +28,7 @@ class OperationDescriber
      *
      * @return array<string, mixed>
      */
-    public function describe(ReflectionMethod $method, Route $route): array
+    public function describe(\ReflectionMethod $method, Route $route): array
     {
         $operation = [
             'summary' => $this->generateSummary($method),
@@ -48,7 +44,7 @@ class OperationDescriber
 
         // Request Body
         $requestBody = $this->describeRequestBody($method);
-        if ($requestBody !== null) {
+        if (null !== $requestBody) {
             $operation['requestBody'] = $requestBody;
         }
 
@@ -63,7 +59,7 @@ class OperationDescriber
      *
      * @return list<array<string, mixed>>
      */
-    private function describeParameters(ReflectionMethod $method, Route $route): array
+    private function describeParameters(\ReflectionMethod $method, Route $route): array
     {
         $parameters = [];
 
@@ -86,7 +82,7 @@ class OperationDescriber
             $parameters[] = [
                 'name' => $param['name'],
                 'in' => 'query',
-                'required' => $param['type'] !== null && !$param['type']->allowsNull(),
+                'required' => null !== $param['type'] && !$param['type']->allowsNull(),
                 'schema' => $schema,
             ];
         }
@@ -99,7 +95,7 @@ class OperationDescriber
      *
      * @return array<string, mixed>|null
      */
-    private function describeRequestBody(ReflectionMethod $method): ?array
+    private function describeRequestBody(\ReflectionMethod $method): ?array
     {
         $requestAttributes = $this->attributeReader->readRequestAttributes($method);
 
@@ -112,9 +108,9 @@ class OperationDescriber
                 $attrs = $parameter->getAttributes(MapRequestPayload::class);
                 if (!empty($attrs)) {
                     $type = $parameter->getType();
-                    if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
+                    if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
                         $className = $type->getName();
-                        $reflectionClass = new ReflectionClass($className);
+                        $reflectionClass = new \ReflectionClass($className);
                         $schema = $this->schemaDescriber->describe($reflectionClass);
 
                         return [
@@ -138,7 +134,7 @@ class OperationDescriber
      *
      * @return array<int|string, mixed>
      */
-    private function describeResponses(ReflectionMethod $method): array
+    private function describeResponses(\ReflectionMethod $method): array
     {
         $returnType = $method->getReturnType();
 
@@ -148,11 +144,11 @@ class OperationDescriber
             ],
         ];
 
-        if ($returnType instanceof ReflectionNamedType && !$returnType->isBuiltin()) {
+        if ($returnType instanceof \ReflectionNamedType && !$returnType->isBuiltin()) {
             $className = $returnType->getName();
             if (class_exists($className)) {
                 try {
-                    $reflectionClass = new ReflectionClass($className);
+                    $reflectionClass = new \ReflectionClass($className);
                     $schema = $this->schemaDescriber->describe($reflectionClass);
 
                     $responses['200']['content'] = [
@@ -172,28 +168,29 @@ class OperationDescriber
     /**
      * 生成操作摘要.
      */
-    private function generateSummary(ReflectionMethod $method): string
+    private function generateSummary(\ReflectionMethod $method): string
     {
         // 從 DocBlock 提取或使用方法名稱
         $docComment = $method->getDocComment();
-        if ($docComment !== false && preg_match('/@summary\s+(.+)/', $docComment, $matches)) {
+        if (false !== $docComment && preg_match('/@summary\s+(.+)/', $docComment, $matches)) {
             return trim($matches[1]);
         }
 
         // 從方法名稱生成
         $methodName = $method->getName();
+
         return ucfirst(preg_replace('/([a-z])([A-Z])/', '$1 $2', $methodName));
     }
 
     /**
      * 生成 operationId.
      */
-    private function generateOperationId(ReflectionMethod $method): string
+    private function generateOperationId(\ReflectionMethod $method): string
     {
         $className = $method->getDeclaringClass()->getShortName();
         $methodName = $method->getName();
 
-        return lcfirst($className) . '_' . $methodName;
+        return lcfirst($className).'_'.$methodName;
     }
 
     /**
@@ -201,7 +198,7 @@ class OperationDescriber
      *
      * @return list<string>
      */
-    private function generateTags(ReflectionMethod $method): array
+    private function generateTags(\ReflectionMethod $method): array
     {
         // 使用 Controller 名稱作為標籤
         $className = $method->getDeclaringClass()->getShortName();

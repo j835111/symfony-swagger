@@ -7,7 +7,7 @@ namespace SymfonySwagger;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
- * SymfonySwaggerBundle
+ * SymfonySwaggerBundle.
  *
  * Main bundle class for Symfony Swagger/OpenAPI integration.
  */

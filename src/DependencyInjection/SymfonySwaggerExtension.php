@@ -20,7 +20,7 @@ class SymfonySwaggerExtension extends Extension
      * Loads the bundle configuration.
      *
      * @param array<int, array<string, mixed>> $configs
-     * @param ContainerBuilder $container
+     *
      * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Analyzer;
 
-use ReflectionAttribute;
 use ReflectionMethod;
-use ReflectionParameter;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -26,9 +24,9 @@ class AttributeReader
      *
      * @return Route|null Route Attribute instance or null if not found
      */
-    public function readRouteAttribute(ReflectionMethod $method): ?Route
+    public function readRouteAttribute(\ReflectionMethod $method): ?Route
     {
-        $attributes = $method->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
+        $attributes = $method->getAttributes(Route::class, \ReflectionAttribute::IS_INSTANCEOF);
 
         if (empty($attributes)) {
             return null;
@@ -42,26 +40,26 @@ class AttributeReader
      *
      * @return array<string, object> Map of attribute type => attribute instance
      */
-    public function readRequestAttributes(ReflectionMethod $method): array
+    public function readRequestAttributes(\ReflectionMethod $method): array
     {
         $requestAttributes = [];
 
         foreach ($method->getParameters() as $parameter) {
             // #[MapRequestPayload]
             $mapRequestPayload = $this->getParameterAttribute($parameter, MapRequestPayload::class);
-            if ($mapRequestPayload !== null) {
+            if (null !== $mapRequestPayload) {
                 $requestAttributes['requestPayload'] = $mapRequestPayload;
             }
 
             // #[MapUploadedFile]
             $mapUploadedFile = $this->getParameterAttribute($parameter, MapUploadedFile::class);
-            if ($mapUploadedFile !== null) {
+            if (null !== $mapUploadedFile) {
                 $requestAttributes['uploadedFile'] = $mapUploadedFile;
             }
 
             // #[MapQueryString]
             $mapQueryString = $this->getParameterAttribute($parameter, MapQueryString::class);
-            if ($mapQueryString !== null) {
+            if (null !== $mapQueryString) {
                 $requestAttributes['queryString'] = $mapQueryString;
             }
         }
@@ -74,14 +72,14 @@ class AttributeReader
      *
      * @return array<int, array<string, mixed>> Array of parameter definitions
      */
-    public function getParametersFromAttributes(ReflectionMethod $method): array
+    public function getParametersFromAttributes(\ReflectionMethod $method): array
     {
         $parameters = [];
 
         foreach ($method->getParameters() as $parameter) {
             // #[MapQueryParameter]
             $mapQueryParameter = $this->getParameterAttribute($parameter, MapQueryParameter::class);
-            if ($mapQueryParameter !== null) {
+            if (null !== $mapQueryParameter) {
                 $parameters[] = [
                     'name' => $parameter->getName(),
                     'in' => 'query',
@@ -99,18 +97,18 @@ class AttributeReader
      *
      * @return array<int, object> Array of security attributes
      */
-    public function readSecurityAttributes(ReflectionMethod $method): array
+    public function readSecurityAttributes(\ReflectionMethod $method): array
     {
         // Check if IsGranted class exists (symfony/security-http may not be installed)
         if (!class_exists('Symfony\Component\Security\Http\Attribute\IsGranted')) {
             return [];
         }
 
-        $attributes = $method->getAttributes('Symfony\Component\Security\Http\Attribute\IsGranted', ReflectionAttribute::IS_INSTANCEOF);
+        $attributes = $method->getAttributes('Symfony\Component\Security\Http\Attribute\IsGranted', \ReflectionAttribute::IS_INSTANCEOF);
 
         return array_map(
-            fn (ReflectionAttribute $attr) => $attr->newInstance(),
-            $attributes
+            fn (\ReflectionAttribute $attr) => $attr->newInstance(),
+            $attributes,
         );
     }
 
@@ -118,12 +116,14 @@ class AttributeReader
      * 從參數中取得特定 Attribute.
      *
      * @template T of object
+     *
      * @param class-string<T> $attributeClass
+     *
      * @return T|null
      */
-    private function getParameterAttribute(ReflectionParameter $parameter, string $attributeClass): ?object
+    private function getParameterAttribute(\ReflectionParameter $parameter, string $attributeClass): ?object
     {
-        $attributes = $parameter->getAttributes($attributeClass, ReflectionAttribute::IS_INSTANCEOF);
+        $attributes = $parameter->getAttributes($attributeClass, \ReflectionAttribute::IS_INSTANCEOF);
 
         if (empty($attributes)) {
             return null;

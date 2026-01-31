@@ -26,6 +26,7 @@ class SchemaRegistry
      *
      * @param string $className 完整的類別名稱
      * @param array<string, mixed> $schema OpenAPI Schema 定義
+     *
      * @return string $ref 路徑,例如 "#/components/schemas/UserDto"
      */
     public function register(string $className, array $schema): string
@@ -42,6 +43,7 @@ class SchemaRegistry
     public function has(string $className): bool
     {
         $schemaName = $this->getSchemaName($className);
+
         return isset($this->schemas[$schemaName]);
     }
 
@@ -49,11 +51,13 @@ class SchemaRegistry
      * 取得 Schema 的 $ref 路徑.
      *
      * @param string $className 完整的類別名稱
+     *
      * @return string $ref 路徑
      */
     public function getReference(string $className): string
     {
         $schemaName = $this->getSchemaName($className);
+
         return "#/components/schemas/{$schemaName}";
     }
 
@@ -112,6 +116,7 @@ class SchemaRegistry
      * 例如: App\DTO\UserDto -> UserDto
      *
      * @param string $className 完整的類別名稱
+     *
      * @return string Schema 名稱
      */
     private function getSchemaName(string $className): string
@@ -136,25 +141,28 @@ class SchemaRegistry
 
         // 如果名稱已被使用,加上命名空間前綴
         if ($isNameTaken) {
-            if (count($parts) > 1) {
-                $prefix = $parts[count($parts) - 2];
-                $candidateName = $prefix . $shortName;
+            if (\count($parts) > 1) {
+                $prefix = $parts[\count($parts) - 2];
+                $candidateName = $prefix.$shortName;
 
                 // 如果加上前綴後仍衝突,使用完整名稱(移除反斜線)
                 foreach ($this->classNameMap as $existingSchemaName) {
                     if ($existingSchemaName === $candidateName) {
                         $schemaName = str_replace('\\', '', $className);
                         $this->classNameMap[$className] = $schemaName;
+
                         return $schemaName;
                     }
                 }
 
                 $this->classNameMap[$className] = $candidateName;
+
                 return $candidateName;
             }
         }
 
         $this->classNameMap[$className] = $shortName;
+
         return $shortName;
     }
 
@@ -166,6 +174,7 @@ class SchemaRegistry
     public function getSchema(string $className): ?array
     {
         $schemaName = $this->getSchemaName($className);
+
         return $this->schemas[$schemaName] ?? null;
     }
 }

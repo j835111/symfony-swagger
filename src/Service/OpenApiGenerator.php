@@ -32,7 +32,7 @@ class OpenApiGenerator
         private readonly SchemaRegistry $schemaRegistry,
         private readonly ?CacheInterface $cache = null,
         private readonly array $config = [],
-        private readonly ?LoggerInterface $logger = null
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -44,17 +44,18 @@ class OpenApiGenerator
     public function generate(): array
     {
         // L1 快取 - Request level
-        if ($this->cachedDoc !== null) {
+        if (null !== $this->cachedDoc) {
             return $this->cachedDoc;
         }
 
         // L2 快取 - Symfony Cache
-        if ($this->cache !== null && ($this->config['cache']['enabled'] ?? true)) {
+        if (null !== $this->cache && ($this->config['cache']['enabled'] ?? true)) {
             $cacheKey = $this->getCacheKey();
             $ttl = $this->config['cache']['ttl'] ?? 3600;
 
             return $this->cache->get($cacheKey, function (ItemInterface $item) use ($ttl) {
                 $item->expiresAfter($ttl);
+
                 return $this->doGenerate();
             });
         }
@@ -170,6 +171,7 @@ class OpenApiGenerator
     private function getCacheKey(): string
     {
         $configHash = md5(json_encode($this->config));
+
         return "openapi_doc_{$configHash}";
     }
 
@@ -180,7 +182,7 @@ class OpenApiGenerator
     {
         $this->cachedDoc = null;
 
-        if ($this->cache !== null) {
+        if (null !== $this->cache) {
             $cacheKey = $this->getCacheKey();
             $this->cache->delete($cacheKey);
         }

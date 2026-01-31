@@ -5,13 +5,7 @@ declare(strict_types=1);
 namespace SymfonySwagger\Analyzer;
 
 use BackedEnum;
-use DateTimeInterface;
 use ReflectionClass;
-use ReflectionNamedType;
-use ReflectionParameter;
-use ReflectionProperty;
-use ReflectionType;
-use ReflectionUnionType;
 
 /**
  * TypeAnalyzer - PHP 型別分析器.
@@ -25,22 +19,23 @@ class TypeAnalyzer
      * @param int $maxDepth 最大遞迴深度,防止無限循環
      */
     public function __construct(
-        private readonly int $maxDepth = 5
+        private readonly int $maxDepth = 5,
     ) {
     }
 
     /**
      * 分析型別並生成 OpenAPI Schema.
      *
-     * @param ReflectionType|ReflectionClass<object>|null $type 要分析的型別
+     * @param \ReflectionType|\ReflectionClass<object>|null $type 要分析的型別
      * @param int $depth 當前遞迴深度
      * @param array<string, true> $context 已分析的類別名稱(循環引用偵測)
+     *
      * @return array<string, mixed> OpenAPI Schema
      */
     public function analyze(
-        ReflectionType|ReflectionClass|null $type,
+        \ReflectionType|\ReflectionClass|null $type,
         int $depth = 0,
-        array $context = []
+        array $context = [],
     ): array {
         // 超過最大深度,回傳基本 object schema
         if ($depth > $this->maxDepth) {
@@ -48,25 +43,25 @@ class TypeAnalyzer
         }
 
         // 型別為 null,回傳任意型別
-        if ($type === null) {
+        if (null === $type) {
             return ['type' => 'string', 'description' => 'No type hint available'];
         }
 
         // 如果是 ReflectionClass,直接分析類別
-        if ($type instanceof ReflectionClass) {
+        if ($type instanceof \ReflectionClass) {
             return $this->analyzeClassType($type, $depth, $context);
         }
 
         // 處理 Union Types (e.g., string|int|null)
-        if ($type instanceof ReflectionUnionType) {
+        if ($type instanceof \ReflectionUnionType) {
             return $this->analyzeUnionType($type, $depth, $context);
         }
 
         // 處理 Named Types (e.g., string, int, ClassName)
-        if ($type instanceof ReflectionNamedType) {
+        if ($type instanceof \ReflectionNamedType) {
             $schema = $type->isBuiltin()
                 ? $this->analyzeBuiltinType($type)
-                : $this->analyzeClassType(new ReflectionClass($type->getName()), $depth, $context);
+                : $this->analyzeClassType(new \ReflectionClass($type->getName()), $depth, $context);
 
             // 處理 nullable (e.g., ?string)
             if ($type->allowsNull() && !isset($schema['nullable'])) {
@@ -82,7 +77,7 @@ class TypeAnalyzer
     /**
      * 分析內建型別 (string, int, float, bool, array).
      */
-    private function analyzeBuiltinType(ReflectionNamedType $type): array
+    private function analyzeBuiltinType(\ReflectionNamedType $type): array
     {
         return match ($type->getName()) {
             'string' => ['type' => 'string'],
@@ -100,9 +95,10 @@ class TypeAnalyzer
      * 分析 Union Types (e.g., string|int).
      *
      * @param array<string, true> $context
+     *
      * @return array<string, mixed>
      */
-    private function analyzeUnionType(ReflectionUnionType $type, int $depth, array $context): array
+    private function analyzeUnionType(\ReflectionUnionType $type, int $depth, array $context): array
     {
         $types = $type->getTypes();
         $schemas = [];
@@ -110,7 +106,7 @@ class TypeAnalyzer
 
         foreach ($types as $subType) {
             // 處理 null type
-            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
+            if ($subType instanceof \ReflectionNamedType && 'null' === $subType->getName()) {
                 $hasNull = true;
                 continue;
             }
@@ -119,11 +115,12 @@ class TypeAnalyzer
         }
 
         // 只有一個非 null 型別,直接返回
-        if (count($schemas) === 1) {
+        if (1 === \count($schemas)) {
             $schema = $schemas[0];
             if ($hasNull) {
                 $schema['nullable'] = true;
             }
+
             return $schema;
         }
 
@@ -139,54 +136,56 @@ class TypeAnalyzer
     /**
      * 分析類別型別.
      *
-     * @param ReflectionClass<object> $class
+     * @param \ReflectionClass<object> $class
      * @param array<string, true> $context
+     *
      * @return array<string, mixed>
      */
-    private function analyzeClassType(ReflectionClass $class, int $depth, array $context): array
+    private function analyzeClassType(\ReflectionClass $class, int $depth, array $context): array
     {
         $className = $class->getName();
 
         // 檢測循環引用
         if (isset($context[$className])) {
             return [
-                '$ref' => '#/components/schemas/' . $class->getShortName(),
+                '$ref' => '#/components/schemas/'.$class->getShortName(),
             ];
         }
 
         // 處理特殊類別
         $specialSchema = $this->analyzeSpecialClass($class);
-        if ($specialSchema !== null) {
+        if (null !== $specialSchema) {
             return $specialSchema;
         }
 
         // 一般 DTO 類別,標記為引用
         return [
-            '$ref' => '#/components/schemas/' . $class->getShortName(),
+            '$ref' => '#/components/schemas/'.$class->getShortName(),
         ];
     }
 
     /**
      * 分析特殊類別 (DateTime, Enum 等).
      *
-     * @param ReflectionClass<object> $class
+     * @param \ReflectionClass<object> $class
+     *
      * @return array<string, mixed>|null
      */
-    private function analyzeSpecialClass(ReflectionClass $class): ?array
+    private function analyzeSpecialClass(\ReflectionClass $class): ?array
     {
         $className = $class->getName();
 
         // DateTime 相關類別
-        if ($class->implementsInterface(DateTimeInterface::class)) {
+        if ($class->implementsInterface(\DateTimeInterface::class)) {
             return ['type' => 'string', 'format' => 'date-time'];
         }
 
         // BackedEnum
-        if ($class->isEnum() && $class->implementsInterface(BackedEnum::class)) {
-            /** @var class-string<BackedEnum> $className */
+        if ($class->isEnum() && $class->implementsInterface(\BackedEnum::class)) {
+            /** @var class-string<\BackedEnum> $className */
             $cases = $className::cases();
-            $values = array_map(fn (BackedEnum $case) => $case->value, $cases);
-            $type = is_int($values[0] ?? null) ? 'integer' : 'string';
+            $values = array_map(fn (\BackedEnum $case) => $case->value, $cases);
+            $type = \is_int($values[0] ?? null) ? 'integer' : 'string';
 
             return [
                 'type' => $type,
@@ -214,10 +213,10 @@ class TypeAnalyzer
      *
      * 例如: @var int[] 或 @var array<int, string>
      */
-    public function extractFromDocBlock(ReflectionProperty|ReflectionParameter $reflection): ?string
+    public function extractFromDocBlock(\ReflectionProperty|\ReflectionParameter $reflection): ?string
     {
         $docComment = $reflection->getDocComment();
-        if ($docComment === false) {
+        if (false === $docComment) {
             return null;
         }
 
@@ -239,14 +238,14 @@ class TypeAnalyzer
      *
      * @return array<string, mixed>
      */
-    public function analyzeProperty(ReflectionProperty $property, int $depth = 0, array $context = []): array
+    public function analyzeProperty(\ReflectionProperty $property, int $depth = 0, array $context = []): array
     {
         $schema = $this->analyze($property->getType(), $depth, $context);
 
         // 如果是 array 型別,嘗試從 DocBlock 推導元素型別
-        if (isset($schema['type']) && $schema['type'] === 'array') {
+        if (isset($schema['type']) && 'array' === $schema['type']) {
             $elementType = $this->extractFromDocBlock($property);
-            if ($elementType !== null) {
+            if (null !== $elementType) {
                 $schema['items'] = $this->analyzeTypeString($elementType, $depth + 1, $context);
             }
         }
@@ -258,6 +257,7 @@ class TypeAnalyzer
      * 從型別字串分析 Schema (用於 DocBlock).
      *
      * @param array<string, true> $context
+     *
      * @return array<string, mixed>
      */
     private function analyzeTypeString(string $typeString, int $depth, array $context): array
@@ -271,7 +271,7 @@ class TypeAnalyzer
             'array' => ['type' => 'array'],
             'object' => ['type' => 'object'],
             default => class_exists($typeString)
-                ? $this->analyze(new ReflectionClass($typeString), $depth, $context)
+                ? $this->analyze(new \ReflectionClass($typeString), $depth, $context)
                 : ['type' => 'string'],
         };
     }

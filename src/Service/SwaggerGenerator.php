@@ -21,7 +21,7 @@ class SwaggerGenerator
      */
     public function __construct(
         private readonly array $config,
-        ?OpenApiGenerator $generator = null
+        ?OpenApiGenerator $generator = null,
     ) {
         $this->generator = $generator;
     }
@@ -44,7 +44,7 @@ class SwaggerGenerator
     public function generate(): array
     {
         // If OpenApiGenerator is available, use it
-        if ($this->generator !== null) {
+        if (null !== $this->generator) {
             return $this->generator->generate();
         }
 

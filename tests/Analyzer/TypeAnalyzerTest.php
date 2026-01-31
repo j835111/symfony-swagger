@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Tests\Analyzer;
 
-use DateTime;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
-use ReflectionProperty;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 
 class TypeAnalyzerTest extends TestCase
@@ -21,7 +18,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeStringType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'name');
+        $reflection = new \ReflectionProperty(TestDto::class, 'name');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('string', $schema['type']);
@@ -29,7 +26,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeIntType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'age');
+        $reflection = new \ReflectionProperty(TestDto::class, 'age');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('integer', $schema['type']);
@@ -38,7 +35,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeBoolType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'active');
+        $reflection = new \ReflectionProperty(TestDto::class, 'active');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('boolean', $schema['type']);
@@ -46,7 +43,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeFloatType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'price');
+        $reflection = new \ReflectionProperty(TestDto::class, 'price');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('number', $schema['type']);
@@ -55,7 +52,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeArrayType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'tags');
+        $reflection = new \ReflectionProperty(TestDto::class, 'tags');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('array', $schema['type']);
@@ -64,7 +61,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeNullableType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'description');
+        $reflection = new \ReflectionProperty(TestDto::class, 'description');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('string', $schema['type']);
@@ -73,7 +70,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeDateTimeType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'createdAt');
+        $reflection = new \ReflectionProperty(TestDto::class, 'createdAt');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('string', $schema['type']);
@@ -82,7 +79,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeClassType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'author');
+        $reflection = new \ReflectionProperty(TestDto::class, 'author');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertArrayHasKey('$ref', $schema);
@@ -91,19 +88,19 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzeUnionType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'status');
+        $reflection = new \ReflectionProperty(TestDto::class, 'status');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         // Union type 應該生成 oneOf
         $this->assertTrue(
             isset($schema['oneOf']) || isset($schema['type']),
-            'Union type should have oneOf or simplified type'
+            'Union type should have oneOf or simplified type',
         );
     }
 
     public function testAnalyzeEnumType(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'role');
+        $reflection = new \ReflectionProperty(TestDto::class, 'role');
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('string', $schema['type']);
@@ -114,7 +111,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testExtractFromDocBlockSimpleArray(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'items');
+        $reflection = new \ReflectionProperty(TestDto::class, 'items');
         $elementType = $this->analyzer->extractFromDocBlock($reflection);
 
         $this->assertSame('string', $elementType);
@@ -122,7 +119,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testAnalyzePropertyWithDocBlock(): void
     {
-        $reflection = new ReflectionProperty(TestDto::class, 'items');
+        $reflection = new \ReflectionProperty(TestDto::class, 'items');
         $schema = $this->analyzer->analyzeProperty($reflection);
 
         $this->assertSame('array', $schema['type']);
@@ -133,7 +130,7 @@ class TypeAnalyzerTest extends TestCase
     public function testMaxDepthProtection(): void
     {
         $analyzer = new TypeAnalyzer(maxDepth: 0);
-        $reflection = new ReflectionProperty(TestDto::class, 'author');
+        $reflection = new \ReflectionProperty(TestDto::class, 'author');
         $schema = $analyzer->analyze($reflection->getType(), depth: 1);
 
         $this->assertSame('object', $schema['type']);
@@ -142,7 +139,7 @@ class TypeAnalyzerTest extends TestCase
 
     public function testCircularReferenceDetection(): void
     {
-        $reflection = new ReflectionClass(AuthorDto::class);
+        $reflection = new \ReflectionClass(AuthorDto::class);
         $context = [AuthorDto::class => true];
         $schema = $this->analyzer->analyze($reflection, depth: 0, context: $context);
 
@@ -158,7 +155,7 @@ class TestDto
     public float $price;
     public array $tags;
     public ?string $description;
-    public DateTime $createdAt;
+    public \DateTime $createdAt;
     public AuthorDto $author;
     public string|int $status;
     public UserRole $role;

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service\Describer;
 
-use ReflectionClass;
-use ReflectionProperty;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 use SymfonySwagger\Service\Registry\SchemaRegistry;
 
@@ -18,17 +16,18 @@ class SchemaDescriber
 {
     public function __construct(
         private readonly TypeAnalyzer $typeAnalyzer,
-        private readonly SchemaRegistry $schemaRegistry
+        private readonly SchemaRegistry $schemaRegistry,
     ) {
     }
 
     /**
      * 描述一個類別並生成 Schema.
      *
-     * @param ReflectionClass<object> $class
+     * @param \ReflectionClass<object> $class
+     *
      * @return array<string, mixed>
      */
-    public function describe(ReflectionClass $class, int $depth = 0): array
+    public function describe(\ReflectionClass $class, int $depth = 0): array
     {
         $className = $class->getName();
 
@@ -70,14 +69,15 @@ class SchemaDescriber
     /**
      * 描述類別的所有屬性.
      *
-     * @param ReflectionClass<object> $class
+     * @param \ReflectionClass<object> $class
+     *
      * @return array<string, array<string, mixed>>
      */
-    private function describeProperties(ReflectionClass $class, int $depth): array
+    private function describeProperties(\ReflectionClass $class, int $depth): array
     {
         $properties = [];
 
-        foreach ($class->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+        foreach ($class->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
             // 跳過靜態屬性
             if ($property->isStatic()) {
                 continue;
@@ -93,14 +93,15 @@ class SchemaDescriber
     /**
      * 取得必填屬性列表.
      *
-     * @param ReflectionClass<object> $class
+     * @param \ReflectionClass<object> $class
+     *
      * @return list<string>
      */
-    private function getRequiredProperties(ReflectionClass $class): array
+    private function getRequiredProperties(\ReflectionClass $class): array
     {
         $required = [];
 
-        foreach ($class->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+        foreach ($class->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
             if ($property->isStatic()) {
                 continue;
             }
@@ -108,7 +109,7 @@ class SchemaDescriber
             $type = $property->getType();
 
             // 如果型別不允許 null 且沒有預設值,則為必填
-            if ($type !== null && !$type->allowsNull() && !$property->hasDefaultValue()) {
+            if (null !== $type && !$type->allowsNull() && !$property->hasDefaultValue()) {
                 $required[] = $property->getName();
             }
         }

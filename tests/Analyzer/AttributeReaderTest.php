@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace SymfonySwagger\Tests\Analyzer;
 
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
-use SymfonySwagger\Analyzer\AttributeReader;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
+use SymfonySwagger\Analyzer\AttributeReader;
 
 class AttributeReaderTest extends TestCase
 {
@@ -22,7 +21,7 @@ class AttributeReaderTest extends TestCase
 
     public function testReadRouteAttribute(): void
     {
-        $reflection = new ReflectionMethod(TestController::class, 'listAction');
+        $reflection = new \ReflectionMethod(TestController::class, 'listAction');
         $route = $this->reader->readRouteAttribute($reflection);
 
         $this->assertInstanceOf(Route::class, $route);
@@ -32,7 +31,7 @@ class AttributeReaderTest extends TestCase
 
     public function testReadRouteAttributeReturnsNullWhenNotPresent(): void
     {
-        $reflection = new ReflectionMethod(TestController::class, 'methodWithoutRoute');
+        $reflection = new \ReflectionMethod(TestController::class, 'methodWithoutRoute');
         $route = $this->reader->readRouteAttribute($reflection);
 
         $this->assertNull($route);
@@ -40,7 +39,7 @@ class AttributeReaderTest extends TestCase
 
     public function testReadRequestAttributesWithMapRequestPayload(): void
     {
-        $reflection = new ReflectionMethod(TestController::class, 'createAction');
+        $reflection = new \ReflectionMethod(TestController::class, 'createAction');
         $attributes = $this->reader->readRequestAttributes($reflection);
 
         $this->assertArrayHasKey('requestPayload', $attributes);
@@ -49,7 +48,7 @@ class AttributeReaderTest extends TestCase
 
     public function testGetParametersFromAttributes(): void
     {
-        $reflection = new ReflectionMethod(TestController::class, 'searchAction');
+        $reflection = new \ReflectionMethod(TestController::class, 'searchAction');
         $parameters = $this->reader->getParametersFromAttributes($reflection);
 
         $this->assertCount(1, $parameters);
@@ -60,7 +59,7 @@ class AttributeReaderTest extends TestCase
 
     public function testReadSecurityAttributes(): void
     {
-        $reflection = new ReflectionMethod(TestController::class, 'protectedAction');
+        $reflection = new \ReflectionMethod(TestController::class, 'protectedAction');
         $attributes = $this->reader->readSecurityAttributes($reflection);
 
         // Note: IsGranted needs symfony/security-http to be installed
