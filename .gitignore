@@ -26,3 +26,7 @@ composer.lock
 .env
 .env.local
 .env.*.local
+
+# Symfony
+/var/
+
