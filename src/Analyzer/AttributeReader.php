@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Analyzer;
 
-use ReflectionMethod;
-use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
-use Symfony\Component\HttpKernel\Attribute\MapQueryString;
-use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
-use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
-use Symfony\Component\Routing\Attribute\Route;
-
 /**
  * AttributeReader - 讀取 PHP Attributes.
  *
@@ -22,17 +15,26 @@ class AttributeReader
     /**
      * 讀取 #[Route] Attribute.
      *
-     * @return Route|null Route Attribute instance or null if not found
+     * @return object|null Route Attribute instance or null if not found
      */
-    public function readRouteAttribute(\ReflectionMethod $method): ?Route
+    public function readRouteAttribute(\ReflectionMethod $method): ?object
     {
-        $attributes = $method->getAttributes(Route::class, \ReflectionAttribute::IS_INSTANCEOF);
+        // Symfony 6.0-6.2 use Annotation\Route, 6.3+ use Attribute\Route
+        $routeClasses = [
+            'Symfony\Component\Routing\Attribute\Route',
+            'Symfony\Component\Routing\Annotation\Route',
+        ];
 
-        if (empty($attributes)) {
-            return null;
+        foreach ($routeClasses as $class) {
+            if (class_exists($class)) {
+                $attributes = $method->getAttributes($class, \ReflectionAttribute::IS_INSTANCEOF);
+                if (!empty($attributes)) {
+                    return $attributes[0]->newInstance();
+                }
+            }
         }
 
-        return $attributes[0]->newInstance();
+        return null;
     }
 
     /**
@@ -45,22 +47,28 @@ class AttributeReader
         $requestAttributes = [];
 
         foreach ($method->getParameters() as $parameter) {
-            // #[MapRequestPayload]
-            $mapRequestPayload = $this->getParameterAttribute($parameter, MapRequestPayload::class);
-            if (null !== $mapRequestPayload) {
-                $requestAttributes['requestPayload'] = $mapRequestPayload;
+            // #[MapRequestPayload] (Symfony 6.2+)
+            if (class_exists('Symfony\Component\HttpKernel\Attribute\MapRequestPayload')) {
+                $mapRequestPayload = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapRequestPayload');
+                if (null !== $mapRequestPayload) {
+                    $requestAttributes['requestPayload'] = $mapRequestPayload;
+                }
             }
 
-            // #[MapUploadedFile]
-            $mapUploadedFile = $this->getParameterAttribute($parameter, MapUploadedFile::class);
-            if (null !== $mapUploadedFile) {
-                $requestAttributes['uploadedFile'] = $mapUploadedFile;
+            // #[MapUploadedFile] (Symfony 6.2+)
+            if (class_exists('Symfony\Component\HttpKernel\Attribute\MapUploadedFile')) {
+                $mapUploadedFile = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapUploadedFile');
+                if (null !== $mapUploadedFile) {
+                    $requestAttributes['uploadedFile'] = $mapUploadedFile;
+                }
             }
 
-            // #[MapQueryString]
-            $mapQueryString = $this->getParameterAttribute($parameter, MapQueryString::class);
-            if (null !== $mapQueryString) {
-                $requestAttributes['queryString'] = $mapQueryString;
+            // #[MapQueryString] (Symfony 6.2+)
+            if (class_exists('Symfony\Component\HttpKernel\Attribute\MapQueryString')) {
+                $mapQueryString = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapQueryString');
+                if (null !== $mapQueryString) {
+                    $requestAttributes['queryString'] = $mapQueryString;
+                }
             }
         }
 
@@ -77,15 +85,17 @@ class AttributeReader
         $parameters = [];
 
         foreach ($method->getParameters() as $parameter) {
-            // #[MapQueryParameter]
-            $mapQueryParameter = $this->getParameterAttribute($parameter, MapQueryParameter::class);
-            if (null !== $mapQueryParameter) {
-                $parameters[] = [
-                    'name' => $parameter->getName(),
-                    'in' => 'query',
-                    'attribute' => $mapQueryParameter,
-                    'type' => $parameter->getType(),
-                ];
+            // #[MapQueryParameter] (Symfony 6.3+)
+            if (class_exists('Symfony\Component\HttpKernel\Attribute\MapQueryParameter')) {
+                $mapQueryParameter = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapQueryParameter');
+                if (null !== $mapQueryParameter) {
+                    $parameters[] = [
+                        'name' => $parameter->getName(),
+                        'in' => 'query',
+                        'attribute' => $mapQueryParameter,
+                        'type' => $parameter->getType(),
+                    ];
+                }
             }
         }
 
