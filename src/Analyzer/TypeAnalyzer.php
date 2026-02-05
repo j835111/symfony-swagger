@@ -180,6 +180,11 @@ class TypeAnalyzer
             return ['type' => 'string', 'format' => 'date-time'];
         }
 
+        // 排除 Symfony HTTP 內部類別 (不應出現在 API 文檔中)
+        if ($this->isSymfonyInternalClass($className)) {
+            return ['type' => 'object'];
+        }
+
         // BackedEnum
         if ($class->isEnum() && $class->implementsInterface(\BackedEnum::class)) {
             /** @var class-string<\BackedEnum> $className */
@@ -206,6 +211,35 @@ class TypeAnalyzer
         }
 
         return null;
+    }
+
+    /**
+     * 檢查是否為 Symfony 內部類別 (不應在 OpenAPI 中暴露).
+     *
+     * @param string $className 完整類別名稱
+     */
+    private function isSymfonyInternalClass(string $className): bool
+    {
+        $internalClasses = [
+            'Symfony\Component\HttpFoundation\ResponseHeaderBag',
+            'Symfony\Component\HttpFoundation\Response',
+            'Symfony\Component\HttpFoundation\JsonResponse',
+            'Symfony\Component\HttpFoundation\Request',
+            'Symfony\Component\HttpFoundation\Cookie',
+            'Symfony\Component\HttpFoundation\FileBag',
+            'Symfony\Component\HttpFoundation\HeaderBag',
+            'Symfony\Component\HttpFoundation\ServerBag',
+            'Symfony\Component\HttpFoundation\ParameterBag',
+            'Symfony\Component\HttpFoundation\File\UploadedFile',
+        ];
+
+        foreach ($internalClasses as $internalClass) {
+            if ($className === $internalClass || is_subclass_of($className, $internalClass)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
