@@ -32,6 +32,7 @@ class SymfonySwaggerExtension extends Extension
         $container->setParameter('symfony_swagger.config', $config);
         $container->setParameter('symfony_swagger.enabled', $config['enabled']);
         $container->setParameter('symfony_swagger.output_path', $config['output_path']);
+        $container->setParameter('symfony_swagger.analysis.max_depth', $config['analysis']['max_depth'] ?? 5);
 
         // Load services
         $loader = new PhpFileLoader($container, new FileLocator(__DIR__.'/../../config'));
