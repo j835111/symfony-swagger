@@ -24,7 +24,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(AttributeReader::class);
 
     $services->set(TypeAnalyzer::class)
-        ->arg('$maxDepth', param('symfony_swagger.config')['analysis']['max_depth'] ?? 5)
+        ->arg('$maxDepth', param('symfony_swagger.analysis.max_depth'))
     ;
 
     // Registry services
@@ -72,7 +72,10 @@ return static function (ContainerConfigurator $container): void {
     ;
 
     // Auto-register all commands in the Command directory
-    $services->load('SymfonySwagger\\Command\\', __DIR__.'/../src/Command')
+    $commandDir = __DIR__.'/../src/Command';
+    if (is_dir($commandDir)) {
+        $services->load('SymfonySwagger\\Command\\', $commandDir)
         ->tag('console.command')
     ;
+    }
 };
