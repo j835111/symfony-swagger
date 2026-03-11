@@ -5,24 +5,24 @@ declare(strict_types=1);
 namespace SymfonySwagger\Attribute;
 
 /**
- * ApiResponse - ¼Ğª` API ¦^À³«¬§O.
+ * ApiResponse - æ¨™æ³¨ API å›æ‡‰å‹åˆ¥.
  *
- * ¤@¯ë JSON «H«Ê®æ¦¡¡]¹w³]¡^¡G
+ * ä¸€èˆ¬ JSON ä¿¡å°æ ¼å¼ï¼ˆé è¨­ï¼‰ï¼š
  *   { code: int, message: string, data: <DTO> }
  *
- * ¨Ï¥Î½d¨Ò¡]³æµ§ DTO¡^¡G
+ * ä½¿ç”¨ç¯„ä¾‹ï¼ˆå–®ç­† DTOï¼‰ï¼š
  * #[ApiResponse(type: UserResponse::class)]
  *
- * ¨Ï¥Î½d¨Ò¡]DTO °}¦C¡^¡G
+ * ä½¿ç”¨ç¯„ä¾‹ï¼ˆDTO é™£åˆ—ï¼‰ï¼š
  * #[ApiResponse(type: UserResponse::class, collection: true)]
  *
- * ¨Ï¥Î½d¨Ò¡]¯Â°T®§¡AµL data¡^¡G
+ * ä½¿ç”¨ç¯„ä¾‹ï¼ˆç´”è¨Šæ¯ï¼Œç„¡ dataï¼‰ï¼š
  * #[ApiResponse]
  *
- * ¨Ï¥Î½d¨Ò¡]ÀÉ®×¤U¸ü¡A¹w³] application/octet-stream¡^¡G
+ * ä½¿ç”¨ç¯„ä¾‹ï¼ˆæª”æ¡ˆä¸‹è¼‰ï¼Œé è¨­ application/octet-streamï¼‰ï¼š
  * #[ApiResponse(file: true)]
  *
- * ¨Ï¥Î½d¨Ò¡]«ü©w MIME Ãş«¬¡^¡G
+ * ä½¿ç”¨ç¯„ä¾‹ï¼ˆæŒ‡å®š MIME é¡å‹ï¼‰ï¼š
  * #[ApiResponse(file: true, fileMediaType: 'application/pdf')]
  * #[ApiResponse(file: true, fileMediaType: 'text/csv')]
  */
@@ -30,10 +30,10 @@ namespace SymfonySwagger\Attribute;
 final class ApiResponse
 {
     /**
-     * @param class-string|null $type          ¦^À³ data Äæ¦ìªº DTO class ¦WºÙ¡Fnull ªí¥Ü data ¬°ªÅ¡]¶È JSON ¼Ò¦¡¦³®Ä¡^
-     * @param bool              $collection    ¬O§_¦^¶Ç DTO °}¦C¡]true = array of DTO¡Ffalse = ³æµ§ DTO¡^
-     * @param bool              $file          ¬O§_¬°ÀÉ®×¤U¸ü¦^À³¡Ftrue ®É¸õ¹L JSON «H«Ê¡A§ï¥Î binary schema
-     * @param string            $fileMediaType ÀÉ®× MIME Ãş«¬¡A¹w³] application/octet-stream
+     * @param class-string|null $type          å›æ‡‰ data æ¬„ä½çš„ DTO class åç¨±ï¼›null è¡¨ç¤º data ç‚ºç©ºï¼ˆåƒ… JSON æ¨¡å¼æœ‰æ•ˆï¼‰
+     * @param bool              $collection    æ˜¯å¦å›å‚³ DTO é™£åˆ—ï¼ˆtrue = array of DTOï¼›false = å–®ç­† DTOï¼‰
+     * @param bool              $file          æ˜¯å¦ç‚ºæª”æ¡ˆä¸‹è¼‰å›æ‡‰ï¼›true æ™‚è·³é JSON ä¿¡å°ï¼Œæ”¹ç”¨ binary schema
+     * @param string            $fileMediaType æª”æ¡ˆ MIME é¡å‹ï¼Œé è¨­ application/octet-stream
      */
     public function __construct(
         public readonly ?string $type = null,

@@ -135,7 +135,7 @@ class OperationDescriber
                             $itemSchema = $this->schemaDescriber->describe($reflectionClass);
 
                             return [
-                                'required' => true,
+                                'required' => !$type->allowsNull(),
                                 'content' => [
                                     'application/json' => [
                                         'schema' => [
@@ -175,7 +175,7 @@ class OperationDescriber
                 'description' => 'Successful operation',
                 'content' => [
                     'application/json' => [
-                        'schema' => $this->buildEnvelopeSchema($method),
+                        'schema' => $this->buildEnvelopeSchema($apiResponse),
                     ],
                 ],
             ],
@@ -226,19 +226,19 @@ class OperationDescriber
      *
      * @return array<string, mixed>
      */
-    private function buildEnvelopeSchema(\ReflectionMethod $method): array
+    private function buildEnvelopeSchema(?\SymfonySwagger\Attribute\ApiResponse $apiResponse): array
     {
         $properties = [
             'code' => ['type' => 'integer', 'example' => 200],
             'message' => ['type' => 'string', 'example' => 'success'],
-            'data' => $this->resolveDataSchema($method),
+            'data' => $this->resolveDataSchema($apiResponse),
         ];
 
         return [
             'type' => 'object',
             'properties' => $properties,
-                    ];
-                }
+        ];
+    }
 
     /**
      * 解析 data 欄位的 schema.
@@ -248,10 +248,8 @@ class OperationDescriber
      *
      * @return array<string, mixed>
      */
-    private function resolveDataSchema(\ReflectionMethod $method): array
+    private function resolveDataSchema(?\SymfonySwagger\Attribute\ApiResponse $apiResponse): array
     {
-        $apiResponse = $this->attributeReader->readApiResponseAttribute($method);
-
         if (null === $apiResponse || null === $apiResponse->type) {
             return ['nullable' => true, 'description' => 'Response data'];
             }
