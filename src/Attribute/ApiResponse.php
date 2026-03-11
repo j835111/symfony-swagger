@@ -30,10 +30,10 @@ namespace SymfonySwagger\Attribute;
 final class ApiResponse
 {
     /**
-     * @param class-string|null $type          回應 data 欄位的 DTO class 名稱；null 表示 data 為空（僅 JSON 模式有效）
-     * @param bool              $collection    是否回傳 DTO 陣列（true = array of DTO；false = 單筆 DTO）
-     * @param bool              $file          是否為檔案下載回應；true 時跳過 JSON 信封，改用 binary schema
-     * @param string            $fileMediaType 檔案 MIME 類型，預設 application/octet-stream
+     * @param class-string|null $type 回應 data 欄位的 DTO class 名稱；null 表示 data 為空（僅 JSON 模式有效）
+     * @param bool $collection 是否回傳 DTO 陣列（true = array of DTO；false = 單筆 DTO）
+     * @param bool $file 是否為檔案下載回應；true 時跳過 JSON 信封，改用 binary schema
+     * @param string $fileMediaType 檔案 MIME 類型，預設 application/octet-stream
      */
     public function __construct(
         public readonly ?string $type = null,

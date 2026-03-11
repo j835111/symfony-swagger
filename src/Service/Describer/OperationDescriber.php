@@ -127,7 +127,7 @@ class OperationDescriber
 
                     // 情況 2: 參數型別為 array，透過 #[MapRequestPayload(type: Dto::class)] 指定 DTO
                     // e.g., #[MapRequestPayload(type: UpdateRequest::class)] array $items
-                    if ($type instanceof \ReflectionNamedType && $type->getName() === 'array') {
+                    if ($type instanceof \ReflectionNamedType && 'array' === $type->getName()) {
                         $attrInstance = $attrs[0]->newInstance();
                         $dtoClass = $attrInstance->type ?? null;
                         if (null !== $dtoClass && class_exists($dtoClass)) {
@@ -252,7 +252,7 @@ class OperationDescriber
     {
         if (null === $apiResponse || null === $apiResponse->type) {
             return ['nullable' => true, 'description' => 'Response data'];
-            }
+        }
 
         $dtoClass = $apiResponse->type;
 

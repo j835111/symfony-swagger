@@ -124,8 +124,6 @@ class AttributeReader
 
     /**
      * 讀取方法上的 #[ApiResponse] Attribute.
-     *
-     * @return \SymfonySwagger\Attribute\ApiResponse|null
      */
     public function readApiResponseAttribute(\ReflectionMethod $method): ?\SymfonySwagger\Attribute\ApiResponse
     {
