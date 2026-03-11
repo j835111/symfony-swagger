@@ -108,6 +108,8 @@ class OperationDescriber
                 $attrs = $parameter->getAttributes(MapRequestPayload::class);
                 if (!empty($attrs)) {
                     $type = $parameter->getType();
+
+                    // 情況 1: 參數型別直接是 DTO class (e.g., UpdateRequest $item)
                     if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
                         $className = $type->getName();
                         $reflectionClass = new \ReflectionClass($className);
@@ -122,6 +124,29 @@ class OperationDescriber
                             ],
                         ];
                     }
+
+                    // 情況 2: 參數型別為 array，透過 #[MapRequestPayload(type: Dto::class)] 指定 DTO
+                    // e.g., #[MapRequestPayload(type: UpdateRequest::class)] array $items
+                    if ($type instanceof \ReflectionNamedType && 'array' === $type->getName()) {
+                        $attrInstance = $attrs[0]->newInstance();
+                        $dtoClass = $attrInstance->type ?? null;
+                        if (null !== $dtoClass && class_exists($dtoClass)) {
+                            $reflectionClass = new \ReflectionClass($dtoClass);
+                            $itemSchema = $this->schemaDescriber->describe($reflectionClass);
+
+                            return [
+                                'required' => !$type->allowsNull(),
+                                'content' => [
+                                    'application/json' => [
+                                        'schema' => [
+                                            'type' => 'array',
+                                            'items' => $itemSchema,
+                                        ],
+                                    ],
+                                ],
+                            ];
+                        }
+                    }
                 }
             }
         }
@@ -132,37 +157,124 @@ class OperationDescriber
     /**
      * 描述回應.
      *
+     * - 若 #[ApiResponse(file: true)] → 檔案下載 schema（binary，無 JSON 信封）
+     * - 其他情況 → 標準 JSON 信封：{ code: int, message: string, data: <DTO|DTO[]|null> }
+     *
      * @return array<int|string, mixed>
      */
     private function describeResponses(\ReflectionMethod $method): array
     {
-        $returnType = $method->getReturnType();
+        $apiResponse = $this->attributeReader->readApiResponseAttribute($method);
 
-        $responses = [
-            '200' => [
-                'description' => 'Successful operation',
-            ],
-        ];
-
-        if ($returnType instanceof \ReflectionNamedType && !$returnType->isBuiltin()) {
-            $className = $returnType->getName();
-            if (class_exists($className)) {
-                try {
-                    $reflectionClass = new \ReflectionClass($className);
-                    $schema = $this->schemaDescriber->describe($reflectionClass);
-
-                    $responses['200']['content'] = [
-                        'application/json' => [
-                            'schema' => $schema,
-                        ],
-                    ];
-                } catch (\ReflectionException $e) {
-                    // Ignore
-                }
-            }
+        if (null !== $apiResponse && $apiResponse->file) {
+            return $this->buildFileResponse($apiResponse->fileMediaType);
         }
 
-        return $responses;
+        return [
+            '200' => [
+                'description' => 'Successful operation',
+                'content' => [
+                    'application/json' => [
+                        'schema' => $this->buildEnvelopeSchema($apiResponse),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * 建立檔案下載 response 定義.
+     *
+     * 產生結構：
+     * 200:
+     *   description: File download
+     *   headers:
+     *     Content-Disposition: { schema: { type: string } }
+     *   content:
+     *     <mediaType>:
+     *       schema: { type: string, format: binary }
+     *
+     * @return array<int|string, mixed>
+     */
+    private function buildFileResponse(string $mediaType): array
+    {
+        return [
+            '200' => [
+                'description' => 'File download',
+                'headers' => [
+                    'Content-Disposition' => [
+                        'description' => 'Attachment filename',
+                        'schema' => ['type' => 'string'],
+                    ],
+                ],
+                'content' => [
+                    $mediaType => [
+                        'schema' => [
+                            'type' => 'string',
+                            'format' => 'binary',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * 建立標準信封 schema.
+     *
+     * 結構：{ code: int, message: string, data: <DTO|DTO[]|null> }
+     *
+     * @return array<string, mixed>
+     */
+    private function buildEnvelopeSchema(?\SymfonySwagger\Attribute\ApiResponse $apiResponse): array
+    {
+        $properties = [
+            'code' => ['type' => 'integer', 'example' => 200],
+            'message' => ['type' => 'string', 'example' => 'success'],
+            'data' => $this->resolveDataSchema($apiResponse),
+        ];
+
+        return [
+            'type' => 'object',
+            'properties' => $properties,
+        ];
+    }
+
+    /**
+     * 解析 data 欄位的 schema.
+     *
+     * 優先使用 #[ApiResponse(type: DtoClass::class)] Attribute；
+     * 若未標注則 data 設為 nullable object。
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveDataSchema(?\SymfonySwagger\Attribute\ApiResponse $apiResponse): array
+    {
+        if (null === $apiResponse || null === $apiResponse->type) {
+            return ['nullable' => true, 'description' => 'Response data'];
+        }
+
+        $dtoClass = $apiResponse->type;
+
+        if (!class_exists($dtoClass)) {
+            return ['nullable' => true, 'description' => 'Response data'];
+        }
+
+        try {
+            $reflectionClass = new \ReflectionClass($dtoClass);
+            $itemSchema = $this->schemaDescriber->describe($reflectionClass);
+
+            if ($apiResponse->collection) {
+                return [
+                    'type' => 'array',
+                    'items' => $itemSchema,
+                ];
+            }
+
+            return $itemSchema;
+        } catch (\ReflectionException) {
+            return ['nullable' => true, 'description' => 'Response data'];
+        }
     }
 
     /**

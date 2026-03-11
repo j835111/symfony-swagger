@@ -123,6 +123,20 @@ class AttributeReader
     }
 
     /**
+     * 讀取方法上的 #[ApiResponse] Attribute.
+     */
+    public function readApiResponseAttribute(\ReflectionMethod $method): ?\SymfonySwagger\Attribute\ApiResponse
+    {
+        $attributes = $method->getAttributes(\SymfonySwagger\Attribute\ApiResponse::class);
+
+        if (empty($attributes)) {
+            return null;
+        }
+
+        return $attributes[0]->newInstance();
+    }
+
+    /**
      * 從參數中取得特定 Attribute.
      *
      * @template T of object
