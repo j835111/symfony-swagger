@@ -78,4 +78,17 @@ return static function (ContainerConfigurator $container): void {
         ->tag('console.command')
     ;
     }
+
+    // Auto-register all controllers in the Controller directory
+    $controllerDir = __DIR__.'/../src/Controller';
+    if (is_dir($controllerDir)) {
+        $services->load('SymfonySwagger\\Controller\\', $controllerDir);
+    }
+};
+    $commandDir = __DIR__.'/../src/Command';
+    if (is_dir($commandDir)) {
+        $services->load('SymfonySwagger\\Command\\', $commandDir)
+        ->tag('console.command')
+    ;
+    }
 };

@@ -26,19 +26,22 @@
 composer require your-vendor/symfony-swagger-bundle
 ```
 
-如果你沒有使用 Symfony Flex,需要手動註冊 Bundle:
+Bundle 會自動:
+- 載入預設設定 (無需手動建立設定檔)
+- 註冊 API 文件路由到 `/api/docs.json`
 
-```php
-// config/bundles.php
-return [
-    // ...
-    SymfonySwagger\SymfonySwaggerBundle::class => ['all' => true],
-];
-```
+> **注意**: 如果你沒有使用 Symfony Flex,需要手動註冊 Bundle:
+> ```php
+> // config/bundles.php
+> return [
+>     // ...
+>     SymfonySwagger\SymfonySwaggerBundle::class => ['all' => true],
+> ];
+> ```
 
-## 設定
+## 自訂設定 (選填)
 
-建立設定檔 `config/packages/symfony_swagger.yaml`:
+預設情況下,套件會自動運作。如果需要自訂設定,建立 `config/packages/symfony_swagger.yaml`:
 
 ```yaml
 symfony_swagger:
@@ -70,7 +73,17 @@ symfony_swagger:
 
 ## 使用方式
 
-### 基本使用
+### 立即可用
+
+安裝後,API 文件端點立即可用:
+
+```bash
+curl https://your-app.com/api/docs.json
+```
+
+### 自訂 Controller (選填)
+
+如果你需要自訂文件端點,可以建立自己的 Controller:
 
 ```php
 use SymfonySwagger\Service\OpenApiGenerator;
@@ -189,6 +202,8 @@ symfony-swagger/
 │   ├── DependencyInjection/
 │   │   ├── Configuration.php
 │   │   └── SymfonySwaggerExtension.php
+│   ├── Controller/
+│   │   └── SwaggerDocController.php
 │   ├── Service/
 │   │   ├── OpenApiGenerator.php
 │   │   ├── Describer/
