@@ -62,10 +62,10 @@ class ConfigurationTest extends TestCase
     {
         $input = [
             'servers' => [
-                ['url' => 'https://api.test.com', 'description' => 'Test']
-            ]
+                ['url' => 'https://api.test.com', 'description' => 'Test'],
+            ],
         ];
-        
+
         $processor = new Processor();
         $config = $processor->processConfiguration($this->configuration, [$input]);
 
@@ -79,10 +79,10 @@ class ConfigurationTest extends TestCase
             'info' => [
                 'title' => 'Custom Title',
                 'description' => 'Custom Description',
-                'version' => '2.0.0'
-            ]
+                'version' => '2.0.0',
+            ],
         ];
-        
+
         $processor = new Processor();
         $config = $processor->processConfiguration($this->configuration, [$input]);
 
@@ -94,7 +94,7 @@ class ConfigurationTest extends TestCase
     public function testGenerationModeValues(): void
     {
         $input = ['generation_mode' => 'static'];
-        
+
         $processor = new Processor();
         $config = $processor->processConfiguration($this->configuration, [$input]);
 

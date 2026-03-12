@@ -19,7 +19,7 @@ use SymfonySwagger\Service\OpenApiGenerator;
 class SwaggerDocController extends AbstractController
 {
     public function __construct(
-        private readonly OpenApiGenerator $openApiGenerator
+        private readonly OpenApiGenerator $openApiGenerator,
     ) {
     }
 

@@ -48,21 +48,21 @@ class SchemaDescriberTest extends TestCase
     public function testSchemaIsRegisteredAfterDescribe(): void
     {
         $class = new \ReflectionClass(SimpleTestDto::class);
-        
+
         $this->describer->describe($class);
-        
+
         $this->assertTrue($this->schemaRegistry->has('SimpleTestDto'));
     }
 
     public function testSchemaHasCorrectStructure(): void
     {
         $class = new \ReflectionClass(SimpleTestDto::class);
-        
+
         $this->describer->describe($class);
-        
+
         $schemas = $this->schemaRegistry->getSchemas();
         $schema = $schemas['SimpleTestDto'];
-        
+
         $this->assertEquals('object', $schema['type']);
         $this->assertArrayHasKey('properties', $schema);
     }

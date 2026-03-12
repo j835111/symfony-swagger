@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SymfonySwagger\Tests\Service\Describer;
 
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -33,18 +32,18 @@ class OperationDescriberTest extends TestCase
         $this->typeAnalyzer = new TypeAnalyzer();
         $this->schemaDescriber = new SchemaDescriber(
             $this->typeAnalyzer,
-            new SchemaRegistry()
+            new SchemaRegistry(),
         );
         $this->describer = new OperationDescriber(
             $this->attributeReader,
             $this->typeAnalyzer,
-            $this->schemaDescriber
+            $this->schemaDescriber,
         );
     }
 
     public function testDescribeWithBasicRoute(): void
     {
-        $method = new ReflectionMethod($this::class, 'testDescribeWithBasicRoute');
+        $method = new \ReflectionMethod($this::class, 'testDescribeWithBasicRoute');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -58,7 +57,7 @@ class OperationDescriberTest extends TestCase
 
     public function testGenerateOperationId(): void
     {
-        $method = new ReflectionMethod($this::class, 'testGenerateOperationId');
+        $method = new \ReflectionMethod($this::class, 'testGenerateOperationId');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -68,7 +67,7 @@ class OperationDescriberTest extends TestCase
 
     public function testGenerateTagsFromControllerName(): void
     {
-        $method = new ReflectionMethod($this::class, 'testGenerateTagsFromControllerName');
+        $method = new \ReflectionMethod($this::class, 'testGenerateTagsFromControllerName');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -78,21 +77,21 @@ class OperationDescriberTest extends TestCase
 
     public function testDescribeWithPathParameters(): void
     {
-        $method = new ReflectionMethod($this::class, 'testDescribeWithPathParameters');
+        $method = new \ReflectionMethod($this::class, 'testDescribeWithPathParameters');
         $route = new Route('/api/users/{id}');
 
         $result = $this->describer->describe($method, $route);
 
         $this->assertArrayHasKey('parameters', $result);
         $this->assertNotEmpty($result['parameters']);
-        
-        $pathParam = array_filter($result['parameters'], fn($p) => $p['in'] === 'path');
+
+        $pathParam = array_filter($result['parameters'], fn ($p) => 'path' === $p['in']);
         $this->assertNotEmpty($pathParam);
     }
 
     public function testMultiplePathParameters(): void
     {
-        $method = new ReflectionMethod($this::class, 'testMultiplePathParameters');
+        $method = new \ReflectionMethod($this::class, 'testMultiplePathParameters');
         $route = new Route('/api/users/{userId}/posts/{postId}');
 
         $result = $this->describer->describe($method, $route);
@@ -103,7 +102,7 @@ class OperationDescriberTest extends TestCase
 
     public function testRouteWithNoPathParameters(): void
     {
-        $method = new ReflectionMethod($this::class, 'testRouteWithNoPathParameters');
+        $method = new \ReflectionMethod($this::class, 'testRouteWithNoPathParameters');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -114,7 +113,7 @@ class OperationDescriberTest extends TestCase
 
     public function testDescribeWithRequestPayload(): void
     {
-        $method = new ReflectionMethod($this::class, 'testDescribeWithRequestPayload');
+        $method = new \ReflectionMethod($this::class, 'testDescribeWithRequestPayload');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -125,7 +124,7 @@ class OperationDescriberTest extends TestCase
 
     public function testDescribeWithApiResponseAttribute(): void
     {
-        $method = new ReflectionMethod($this::class, 'testDescribeWithApiResponseAttribute');
+        $method = new \ReflectionMethod($this::class, 'testDescribeWithApiResponseAttribute');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -136,21 +135,21 @@ class OperationDescriberTest extends TestCase
 
     public function testDescribeWithFileResponse(): void
     {
-        $method = new ReflectionMethod($this::class, 'testDescribeWithFileResponse');
+        $method = new \ReflectionMethod($this::class, 'testDescribeWithFileResponse');
         $route = new Route('/api/download');
 
         $result = $this->describer->describe($method, $route);
 
         $this->assertArrayHasKey('responses', $result);
         $this->assertArrayHasKey('200', $result['responses']);
-        
+
         $response = $result['responses']['200'];
         $this->assertArrayHasKey('content', $response);
     }
 
     public function testGenerateSummaryFromMethodName(): void
     {
-        $method = new ReflectionMethod($this::class, 'testGenerateSummaryFromMethodName');
+        $method = new \ReflectionMethod($this::class, 'testGenerateSummaryFromMethodName');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -160,7 +159,7 @@ class OperationDescriberTest extends TestCase
 
     public function testResponseContentType(): void
     {
-        $method = new ReflectionMethod($this::class, 'testResponseContentType');
+        $method = new \ReflectionMethod($this::class, 'testResponseContentType');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -172,14 +171,14 @@ class OperationDescriberTest extends TestCase
 
     public function testResponseSchemaStructure(): void
     {
-        $method = new ReflectionMethod($this::class, 'testResponseSchemaStructure');
+        $method = new \ReflectionMethod($this::class, 'testResponseSchemaStructure');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
 
         $response = $result['responses']['200'];
         $schema = $response['content']['application/json']['schema'];
-        
+
         $this->assertEquals('object', $schema['type']);
         $this->assertArrayHasKey('properties', $schema);
         $this->assertArrayHasKey('code', $schema['properties']);
@@ -189,13 +188,13 @@ class OperationDescriberTest extends TestCase
 
     public function testPathParameterRequired(): void
     {
-        $method = new ReflectionMethod($this::class, 'testPathParameterRequired');
+        $method = new \ReflectionMethod($this::class, 'testPathParameterRequired');
         $route = new Route('/api/users/{id}');
 
         $result = $this->describer->describe($method, $route);
 
-        $pathParams = array_filter($result['parameters'] ?? [], fn($p) => $p['in'] === 'path');
-        
+        $pathParams = array_filter($result['parameters'] ?? [], fn ($p) => 'path' === $p['in']);
+
         foreach ($pathParams as $param) {
             $this->assertTrue($param['required']);
         }
@@ -203,7 +202,7 @@ class OperationDescriberTest extends TestCase
 
     public function testQueryParameterNullable(): void
     {
-        $method = new ReflectionMethod($this::class, 'testQueryParameterNullable');
+        $method = new \ReflectionMethod($this::class, 'testQueryParameterNullable');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -213,7 +212,7 @@ class OperationDescriberTest extends TestCase
 
     public function testGenerateSummaryWithDocBlock(): void
     {
-        $method = new ReflectionMethod(TestControllerWithDoc::class, 'index');
+        $method = new \ReflectionMethod(TestControllerWithDoc::class, 'index');
         $route = new Route('/api/test');
 
         $result = $this->describer->describe($method, $route);
@@ -223,7 +222,7 @@ class OperationDescriberTest extends TestCase
 
     public function testRequestBodyWithDtoClass(): void
     {
-        $method = new ReflectionMethod(TestControllerWithDto::class, 'create');
+        $method = new \ReflectionMethod(TestControllerWithDto::class, 'create');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -237,7 +236,7 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapRequestPayload not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithRequestPayload::class, 'create');
+        $method = new \ReflectionMethod(TestControllerWithRequestPayload::class, 'create');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -253,7 +252,7 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapRequestPayload not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithRequestPayload::class, 'bulkCreate');
+        $method = new \ReflectionMethod(TestControllerWithRequestPayload::class, 'bulkCreate');
         $route = new Route('/api/users/bulk');
 
         $result = $this->describer->describe($method, $route);
@@ -270,7 +269,7 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapQueryString not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithQueryString::class, 'list');
+        $method = new \ReflectionMethod(TestControllerWithQueryString::class, 'list');
         $route = new Route('/api/users');
 
         $result = $this->describer->describe($method, $route);
@@ -295,13 +294,13 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapQueryString not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithQueryString::class, 'search');
+        $method = new \ReflectionMethod(TestControllerWithQueryString::class, 'search');
         $route = new Route('/api/users/search');
 
         $result = $this->describer->describe($method, $route);
 
         $params = $result['parameters'] ?? [];
-        $param = array_values(array_filter($params, fn ($p) => $p['name'] === 'filter'))[0] ?? null;
+        $param = array_values(array_filter($params, fn ($p) => 'filter' === $p['name']))[0] ?? null;
         $this->assertNotNull($param);
         $this->assertSame('deepObject', $param['style']);
         $this->assertTrue($param['explode']);
@@ -314,7 +313,7 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapUploadedFile or UploadedFile not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithUploads::class, 'upload');
+        $method = new \ReflectionMethod(TestControllerWithUploads::class, 'upload');
         $route = new Route('/api/upload');
 
         $result = $this->describer->describe($method, $route);
@@ -332,7 +331,7 @@ class OperationDescriberTest extends TestCase
             $this->markTestSkipped('MapUploadedFile or UploadedFile not available.');
         }
 
-        $method = new ReflectionMethod(TestControllerWithUploads::class, 'uploadMany');
+        $method = new \ReflectionMethod(TestControllerWithUploads::class, 'uploadMany');
         $route = new Route('/api/upload-many');
 
         $result = $this->describer->describe($method, $route);

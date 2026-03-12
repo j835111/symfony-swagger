@@ -35,7 +35,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeFiltersInternalRoutesByDefault(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('_profiler_home', new Route('/_profiler', ['_controller' => self::class.'::testDescribeWithEmptyRoutes']));
         $routes->add('app_users', new Route('/api/users', ['_controller' => self::class.'::testDescribeFiltersInternalRoutesByDefault']));
@@ -51,7 +51,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeIncludesInternalRoutesWhenEnabled(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('_profiler_home', new Route('/_profiler', ['_controller' => self::class.'::testDescribeIncludesInternalRoutesWhenEnabled']));
 
@@ -66,7 +66,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeFiltersRoutesWithoutController(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users'));
 
@@ -80,7 +80,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeWithValidController(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => self::class.'::testDescribeWithValidController']));
 
@@ -96,7 +96,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeSkipsInvalidControllerClass(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => 'NonExistentClass::index']));
 
@@ -110,7 +110,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeSkipsInvalidControllerMethod(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => self::class.'::nonExistentMethod']));
 
@@ -124,7 +124,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeReturnsRouteInfo(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => self::class.'::testDescribeReturnsRouteInfo']));
 
@@ -139,7 +139,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeWithMultipleRoutes(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => self::class.'::testDescribeWithMultipleRoutes']));
         $routes->add('app_user_detail', new Route('/api/users/{id}', ['_controller' => self::class.'::testDescribeWithMultipleRoutes']));
@@ -155,9 +155,9 @@ class RouteDescriberTest extends TestCase
     public function testDescribeWithNonStringController(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
-        $routes->add('app_users', new Route('/api/users', ['_controller' => fn() => 'test']));
+        $routes->add('app_users', new Route('/api/users', ['_controller' => fn () => 'test']));
 
         $router->method('getRouteCollection')->willReturn($routes);
 
@@ -169,7 +169,7 @@ class RouteDescriberTest extends TestCase
     public function testDescribeWithArrayControllerFormat(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
+
         $routes = new RouteCollection();
         $routes->add('app_users', new Route('/api/users', ['_controller' => [self::class, 'testDescribeWithArrayControllerFormat']]));
 
@@ -183,11 +183,13 @@ class RouteDescriberTest extends TestCase
     public function testDescribeWithCallableController(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        
-        $controller = new class {
-            public function __invoke() {}
+
+        $controller = new class () {
+            public function __invoke()
+            {
+            }
         };
-        
+
         $routes = new RouteCollection();
         $routes->add('app_invokable', new Route('/api/test', ['_controller' => $controller]));
 

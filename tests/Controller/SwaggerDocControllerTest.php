@@ -6,10 +6,6 @@ namespace SymfonySwagger\Tests\Controller;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
-use Symfony\Component\Routing\RequestContext;
-use Symfony\Component\Routing\RouteCollection;
 use SymfonySwagger\Controller\SwaggerDocController;
 use SymfonySwagger\Service\OpenApiGenerator;
 
@@ -37,13 +33,13 @@ class SwaggerDocControllerTest extends TestCase
             ],
             'paths' => [],
         ];
-        
+
         $this->generator->expects($this->once())
             ->method('generate')
             ->willReturn($expectedDoc);
-        
+
         $response = $this->controller->documentation();
-        
+
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals(JsonResponse::HTTP_OK, $response->getStatusCode());
         $this->assertEquals('application/json', $response->headers->get('Content-Type'));
@@ -65,15 +61,15 @@ class SwaggerDocControllerTest extends TestCase
                 ],
             ],
         ];
-        
+
         $this->generator->expects($this->once())
             ->method('generate')
             ->willReturn($expectedDoc);
-        
+
         $response = $this->controller->documentation();
-        
+
         $content = json_decode($response->getContent(), true);
-        
+
         $this->assertEquals('3.1.0', $content['openapi']);
         $this->assertEquals('My API', $content['info']['title']);
         $this->assertEquals('2.0.0', $content['info']['version']);
@@ -85,11 +81,11 @@ class SwaggerDocControllerTest extends TestCase
         // Verify the route attribute is properly defined
         $reflectionMethod = new \ReflectionMethod($this->controller, 'documentation');
         $attributes = $reflectionMethod->getAttributes(\Symfony\Component\Routing\Attribute\Route::class);
-        
+
         $this->assertNotEmpty($attributes);
-        
+
         $routeAttribute = $attributes[0]->newInstance();
-        
+
         $this->assertEquals('/api/docs.json', $routeAttribute->getPath());
         $this->assertContains('GET', $routeAttribute->getMethods());
         $this->assertEquals('symfony_swagger_doc', $routeAttribute->getName());

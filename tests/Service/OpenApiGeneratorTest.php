@@ -214,6 +214,7 @@ class OpenApiGeneratorTest extends TestCase
                 $item->expects($this->once())
                     ->method('expiresAfter')
                     ->with(3600);
+
                 return $callback($item);
             });
 
@@ -408,6 +409,7 @@ class OpenApiGeneratorTest extends TestCase
                 $item->expects($this->once())
                     ->method('expiresAfter')
                     ->with(3600);
+
                 return $callback($item);
             });
 
