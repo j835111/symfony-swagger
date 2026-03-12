@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace SymfonySwagger\Tests\Analyzer;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 use SymfonySwagger\Analyzer\AttributeReader;
 
@@ -57,6 +60,27 @@ class AttributeReaderTest extends TestCase
         $this->assertInstanceOf(MapQueryParameter::class, $parameters[0]['attribute']);
     }
 
+    public function testGetQueryStringParametersFromAttributes(): void
+    {
+        $reflection = new \ReflectionMethod(TestController::class, 'filterAction');
+        $parameters = $this->reader->getQueryStringParametersFromAttributes($reflection);
+
+        $this->assertCount(1, $parameters);
+        $this->assertSame('filter', $parameters[0]['name']);
+        $this->assertSame('query', $parameters[0]['in']);
+        $this->assertInstanceOf(MapQueryString::class, $parameters[0]['attribute']);
+    }
+
+    public function testGetUploadedFileParametersFromAttributes(): void
+    {
+        $reflection = new \ReflectionMethod(TestController::class, 'uploadAction');
+        $parameters = $this->reader->getUploadedFileParametersFromAttributes($reflection);
+
+        $this->assertCount(1, $parameters);
+        $this->assertSame('picture', $parameters[0]['name']);
+        $this->assertInstanceOf(MapUploadedFile::class, $parameters[0]['attribute']);
+    }
+
     public function testReadSecurityAttributes(): void
     {
         $reflection = new \ReflectionMethod(TestController::class, 'protectedAction');
@@ -88,6 +112,16 @@ class TestController
     {
     }
 
+    #[Route('/posts/filter', methods: ['GET'])]
+    public function filterAction(#[MapQueryString] FilterDto $filter): void
+    {
+    }
+
+    #[Route('/posts/upload', methods: ['POST'])]
+    public function uploadAction(#[MapUploadedFile] UploadedFile $picture): void
+    {
+    }
+
     public function methodWithoutRoute(): void
     {
     }
@@ -96,4 +130,10 @@ class TestController
     public function protectedAction(): void
     {
     }
+}
+
+class FilterDto
+{
+    public string $keyword;
+    public ?int $page = null;
 }

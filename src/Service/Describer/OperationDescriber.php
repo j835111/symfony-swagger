@@ -87,6 +87,71 @@ class OperationDescriber
             ];
         }
 
+        // Query parameters from #[MapQueryString]
+        $queryStringParams = $this->attributeReader->getQueryStringParametersFromAttributes($method);
+        foreach ($queryStringParams as $param) {
+            $parameter = $param['parameter'];
+            $type = $param['type'];
+            $attr = $param['attribute'];
+
+            if (!($type instanceof \ReflectionNamedType) || $type->isBuiltin() || !class_exists($type->getName())) {
+                continue;
+            }
+
+            $reflectionClass = new \ReflectionClass($type->getName());
+            $properties = [];
+            $required = [];
+
+            foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+                if ($property->isStatic()) {
+                    continue;
+                }
+
+                $properties[$property->getName()] = $this->typeAnalyzer->analyzeProperty($property);
+
+                $propType = $property->getType();
+                if (null !== $propType && !$propType->allowsNull() && !$property->hasDefaultValue()) {
+                    $required[] = $property->getName();
+                }
+            }
+
+            $key = null;
+            if (\is_object($attr) && property_exists($attr, 'key') && \is_string($attr->key) && '' !== $attr->key) {
+                $key = $attr->key;
+            }
+
+            $paramIsOptional = $parameter->allowsNull() || $parameter->isDefaultValueAvailable();
+
+            if (null !== $key) {
+                $schema = [
+                    'type' => 'object',
+                    'properties' => $properties,
+                ];
+                if (!empty($required)) {
+                    $schema['required'] = $required;
+                }
+
+                $parameters[] = [
+                    'name' => $key,
+                    'in' => 'query',
+                    'required' => !$paramIsOptional,
+                    'style' => 'deepObject',
+                    'explode' => true,
+                    'schema' => $schema,
+                ];
+            } else {
+                foreach ($properties as $name => $schema) {
+                    $isRequired = !$paramIsOptional && \in_array($name, $required, true);
+                    $parameters[] = [
+                        'name' => $name,
+                        'in' => 'query',
+                        'required' => $isRequired,
+                        'schema' => $schema,
+                    ];
+                }
+            }
+        }
+
         return $parameters;
     }
 
@@ -149,6 +214,12 @@ class OperationDescriber
                     }
                 }
             }
+        }
+
+        // Check for #[MapUploadedFile]
+        $uploadedFiles = $this->attributeReader->getUploadedFileParametersFromAttributes($method);
+        if (!empty($uploadedFiles)) {
+            return $this->buildMultipartRequestBody($uploadedFiles);
         }
 
         return null;
@@ -214,6 +285,64 @@ class OperationDescriber
                             'format' => 'binary',
                         ],
                     ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * 建立 multipart/form-data requestBody (uploaded files).
+     *
+     * @param array<int, array<string, mixed>> $uploadedFiles
+     *
+     * @return array<string, mixed>
+     */
+    private function buildMultipartRequestBody(array $uploadedFiles): array
+    {
+        $properties = [];
+        $required = [];
+
+        foreach ($uploadedFiles as $fileParam) {
+            $parameter = $fileParam['parameter'];
+            $attr = $fileParam['attribute'];
+            $fieldName = $fileParam['name'];
+
+            if (\is_object($attr) && property_exists($attr, 'name') && \is_string($attr->name) && '' !== $attr->name) {
+                $fieldName = $attr->name;
+            }
+
+            $isArray = $parameter->isVariadic();
+            $type = $fileParam['type'];
+            if ($type instanceof \ReflectionNamedType && 'array' === $type->getName()) {
+                $isArray = true;
+            }
+
+            $schema = $isArray
+                ? ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'binary']]
+                : ['type' => 'string', 'format' => 'binary'];
+
+            $properties[$fieldName] = $schema;
+
+            $paramRequired = !($parameter->allowsNull() || $parameter->isDefaultValueAvailable());
+            if ($paramRequired) {
+                $required[] = $fieldName;
+            }
+        }
+
+        $schema = [
+            'type' => 'object',
+            'properties' => $properties,
+        ];
+
+        if (!empty($required)) {
+            $schema['required'] = array_values(array_unique($required));
+        }
+
+        return [
+            'required' => !empty($required),
+            'content' => [
+                'multipart/form-data' => [
+                    'schema' => $schema,
                 ],
             ],
         ];

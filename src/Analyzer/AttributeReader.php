@@ -103,6 +103,63 @@ class AttributeReader
     }
 
     /**
+     * 從 #[MapQueryString] 提取查詢參數 DTO.
+     *
+     * @return array<int, array<string, mixed>> Array of MapQueryString parameter definitions
+     */
+    public function getQueryStringParametersFromAttributes(\ReflectionMethod $method): array
+    {
+        $parameters = [];
+
+        if (!class_exists('Symfony\Component\HttpKernel\Attribute\MapQueryString')) {
+            return $parameters;
+        }
+
+        foreach ($method->getParameters() as $parameter) {
+            $mapQueryString = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapQueryString');
+            if (null !== $mapQueryString) {
+                $parameters[] = [
+                    'name' => $parameter->getName(),
+                    'in' => 'query',
+                    'attribute' => $mapQueryString,
+                    'type' => $parameter->getType(),
+                    'parameter' => $parameter,
+                ];
+            }
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * 從 #[MapUploadedFile] 提取檔案參數.
+     *
+     * @return array<int, array<string, mixed>> Array of MapUploadedFile parameter definitions
+     */
+    public function getUploadedFileParametersFromAttributes(\ReflectionMethod $method): array
+    {
+        $parameters = [];
+
+        if (!class_exists('Symfony\Component\HttpKernel\Attribute\MapUploadedFile')) {
+            return $parameters;
+        }
+
+        foreach ($method->getParameters() as $parameter) {
+            $mapUploadedFile = $this->getParameterAttribute($parameter, 'Symfony\Component\HttpKernel\Attribute\MapUploadedFile');
+            if (null !== $mapUploadedFile) {
+                $parameters[] = [
+                    'name' => $parameter->getName(),
+                    'attribute' => $mapUploadedFile,
+                    'type' => $parameter->getType(),
+                    'parameter' => $parameter,
+                ];
+            }
+        }
+
+        return $parameters;
+    }
+
+    /**
      * 讀取安全性相關 Attributes (#[IsGranted]).
      *
      * @return array<int, object> Array of security attributes
