@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Tests\Controller;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use SymfonySwagger\Controller\SwaggerDocController;
@@ -15,11 +16,15 @@ use SymfonySwagger\Service\OpenApiGenerator;
 class SwaggerDocControllerTest extends TestCase
 {
     private SwaggerDocController $controller;
+
+    /** @var OpenApiGenerator&MockObject */
     private OpenApiGenerator $generator;
 
     protected function setUp(): void
     {
-        $this->generator = $this->createMock(OpenApiGenerator::class);
+        /** @var OpenApiGenerator&MockObject $generator */
+        $generator = $this->createMock(OpenApiGenerator::class);
+        $this->generator = $generator;
         $this->controller = new SwaggerDocController($this->generator);
     }
 
