@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymfonySwagger\Tests\Analyzer;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 
 class TypeAnalyzerTest extends TestCase
@@ -109,6 +110,59 @@ class TypeAnalyzerTest extends TestCase
         $this->assertContains('user', $schema['enum']);
     }
 
+    public function testAnalyzeBackedIntEnumType(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'level');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('integer', $schema['type']);
+        $this->assertContains(1, $schema['enum']);
+        $this->assertContains(2, $schema['enum']);
+    }
+
+    public function testAnalyzeUnitEnumType(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'statusFlag');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('string', $schema['type']);
+        $this->assertContains('ACTIVE', $schema['enum']);
+        $this->assertContains('INACTIVE', $schema['enum']);
+    }
+
+    public function testAnalyzeMixedType(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'metadata');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('Mixed type', $schema['description']);
+    }
+
+    public function testAnalyzeObjectType(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'payload');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('object', $schema['type']);
+    }
+
+    public function testAnalyzeUnionTypeWithNull(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'maybe');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertArrayHasKey('oneOf', $schema);
+        $this->assertTrue($schema['nullable']);
+    }
+
+    public function testAnalyzeSymfonyInternalClass(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'upload');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('object', $schema['type']);
+    }
+
     public function testExtractFromDocBlockSimpleArray(): void
     {
         $reflection = new \ReflectionProperty(TestDto::class, 'items');
@@ -120,6 +174,16 @@ class TypeAnalyzerTest extends TestCase
     public function testAnalyzePropertyWithDocBlock(): void
     {
         $reflection = new \ReflectionProperty(TestDto::class, 'items');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertArrayHasKey('items', $schema);
+        $this->assertSame('string', $schema['items']['type']);
+    }
+
+    public function testAnalyzePropertyWithDocBlockGenericArray(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'authors');
         $schema = $this->analyzer->analyzeProperty($reflection);
 
         $this->assertSame('array', $schema['type']);
@@ -159,9 +223,18 @@ class TestDto
     public AuthorDto $author;
     public string|int $status;
     public UserRole $role;
+    public AccessLevel $level;
+    public StatusFlag $statusFlag;
+    public mixed $metadata;
+    public object $payload;
+    public string|int|null $maybe;
+    public UploadedFile $upload;
 
     /** @var string[] */
     public array $items;
+
+    /** @var array<int, AuthorDto> */
+    public array $authors;
 }
 
 class AuthorDto
@@ -175,4 +248,16 @@ enum UserRole: string
     case ADMIN = 'admin';
     case USER = 'user';
     case GUEST = 'guest';
+}
+
+enum AccessLevel: int
+{
+    case LOW = 1;
+    case HIGH = 2;
+}
+
+enum StatusFlag
+{
+    case ACTIVE;
+    case INACTIVE;
 }

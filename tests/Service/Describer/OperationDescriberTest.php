@@ -6,6 +6,10 @@ namespace SymfonySwagger\Tests\Service\Describer;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Route;
 use SymfonySwagger\Analyzer\AttributeReader;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
@@ -226,6 +230,120 @@ class OperationDescriberTest extends TestCase
 
         $this->assertArrayHasKey('responses', $result);
     }
+
+    public function testDescribeWithMapRequestPayloadDto(): void
+    {
+        if (!class_exists(MapRequestPayload::class)) {
+            $this->markTestSkipped('MapRequestPayload not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithRequestPayload::class, 'create');
+        $route = new Route('/api/users');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $schema = $result['requestBody']['content']['application/json']['schema'];
+        $this->assertSame('#/components/schemas/TestDtoForDescriber', $schema['$ref']);
+    }
+
+    public function testDescribeWithMapRequestPayloadArrayType(): void
+    {
+        if (!class_exists(MapRequestPayload::class)) {
+            $this->markTestSkipped('MapRequestPayload not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithRequestPayload::class, 'bulkCreate');
+        $route = new Route('/api/users/bulk');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $schema = $result['requestBody']['content']['application/json']['schema'];
+        $this->assertSame('array', $schema['type']);
+        $this->assertSame('#/components/schemas/TestDtoForDescriber', $schema['items']['$ref']);
+    }
+
+    public function testDescribeWithMapQueryStringFlattensParameters(): void
+    {
+        if (!class_exists(MapQueryString::class)) {
+            $this->markTestSkipped('MapQueryString not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithQueryString::class, 'list');
+        $route = new Route('/api/users');
+
+        $result = $this->describer->describe($method, $route);
+
+        $params = $result['parameters'] ?? [];
+        $this->assertNotEmpty($params);
+
+        $byName = [];
+        foreach ($params as $param) {
+            $byName[$param['name']] = $param;
+        }
+
+        $this->assertArrayHasKey('keyword', $byName);
+        $this->assertArrayHasKey('page', $byName);
+        $this->assertTrue($byName['keyword']['required']);
+        $this->assertFalse($byName['page']['required']);
+    }
+
+    public function testDescribeWithMapQueryStringKeyUsesDeepObject(): void
+    {
+        if (!class_exists(MapQueryString::class)) {
+            $this->markTestSkipped('MapQueryString not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithQueryString::class, 'search');
+        $route = new Route('/api/users/search');
+
+        $result = $this->describer->describe($method, $route);
+
+        $params = $result['parameters'] ?? [];
+        $param = array_values(array_filter($params, fn ($p) => $p['name'] === 'filter'))[0] ?? null;
+        $this->assertNotNull($param);
+        $this->assertSame('deepObject', $param['style']);
+        $this->assertTrue($param['explode']);
+        $this->assertSame('object', $param['schema']['type']);
+    }
+
+    public function testDescribeWithMapUploadedFileSingle(): void
+    {
+        if (!class_exists(MapUploadedFile::class) || !class_exists(UploadedFile::class)) {
+            $this->markTestSkipped('MapUploadedFile or UploadedFile not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithUploads::class, 'upload');
+        $route = new Route('/api/upload');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $content = $result['requestBody']['content']['multipart/form-data']['schema'];
+        $this->assertArrayHasKey('file', $content['properties']);
+        $this->assertSame('string', $content['properties']['file']['type']);
+        $this->assertSame('binary', $content['properties']['file']['format']);
+    }
+
+    public function testDescribeWithMapUploadedFileArray(): void
+    {
+        if (!class_exists(MapUploadedFile::class) || !class_exists(UploadedFile::class)) {
+            $this->markTestSkipped('MapUploadedFile or UploadedFile not available.');
+        }
+
+        $method = new ReflectionMethod(TestControllerWithUploads::class, 'uploadMany');
+        $route = new Route('/api/upload-many');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $content = $result['requestBody']['content']['multipart/form-data']['schema'];
+        $this->assertArrayHasKey('files', $content['properties']);
+        $this->assertSame('array', $content['properties']['files']['type']);
+        $this->assertSame('string', $content['properties']['files']['items']['type']);
+        $this->assertSame('binary', $content['properties']['files']['items']['format']);
+    }
 }
 
 // Test fixtures
@@ -249,6 +367,51 @@ class TestDtoForDescriber
 class TestControllerWithDto
 {
     public function create(TestDtoForDescriber $dto): array
+    {
+        return [];
+    }
+}
+
+class QueryFilterDto
+{
+    public string $keyword;
+    public ?int $page = null;
+}
+
+class TestControllerWithQueryString
+{
+    public function list(#[MapQueryString] QueryFilterDto $filter): array
+    {
+        return [];
+    }
+
+    public function search(#[MapQueryString(key: 'filter')] QueryFilterDto $filter): array
+    {
+        return [];
+    }
+}
+
+class TestControllerWithRequestPayload
+{
+    public function create(#[MapRequestPayload] TestDtoForDescriber $dto): array
+    {
+        return [];
+    }
+
+    public function bulkCreate(#[MapRequestPayload(type: TestDtoForDescriber::class)] array $items): array
+    {
+        return [];
+    }
+}
+
+class TestControllerWithUploads
+{
+    public function upload(#[MapUploadedFile(name: 'file')] UploadedFile $file): array
+    {
+        return [];
+    }
+
+    public function uploadMany(#[MapUploadedFile(name: 'files')] array $files): array
     {
         return [];
     }

@@ -94,4 +94,50 @@ class SwaggerDocControllerTest extends TestCase
         $this->assertContains('GET', $routeAttribute->getMethods());
         $this->assertEquals('symfony_swagger_doc', $routeAttribute->getName());
     }
+
+    public function testSwaggerUiReturnsHtmlResponse(): void
+    {
+        $response = $this->controller->swaggerUi();
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('text/html', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('swagger-ui', (string) $response->getContent());
+    }
+
+    public function testSwaggerUiRouteHasCorrectName(): void
+    {
+        $reflectionMethod = new \ReflectionMethod($this->controller, 'swaggerUi');
+        $attributes = $reflectionMethod->getAttributes(\Symfony\Component\Routing\Attribute\Route::class);
+
+        $this->assertNotEmpty($attributes);
+
+        $routeAttribute = $attributes[0]->newInstance();
+
+        $this->assertEquals('/api/docs', $routeAttribute->getPath());
+        $this->assertContains('GET', $routeAttribute->getMethods());
+        $this->assertEquals('symfony_swagger_ui', $routeAttribute->getName());
+    }
+
+    public function testScalarReturnsHtmlResponse(): void
+    {
+        $response = $this->controller->scalar();
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('text/html', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('scalar-api-reference', (string) $response->getContent());
+    }
+
+    public function testScalarRouteHasCorrectName(): void
+    {
+        $reflectionMethod = new \ReflectionMethod($this->controller, 'scalar');
+        $attributes = $reflectionMethod->getAttributes(\Symfony\Component\Routing\Attribute\Route::class);
+
+        $this->assertNotEmpty($attributes);
+
+        $routeAttribute = $attributes[0]->newInstance();
+
+        $this->assertEquals('/api/docs/scalar', $routeAttribute->getPath());
+        $this->assertContains('GET', $routeAttribute->getMethods());
+        $this->assertEquals('symfony_swagger_scalar', $routeAttribute->getName());
+    }
 }

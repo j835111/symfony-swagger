@@ -12,6 +12,7 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 use SymfonySwagger\Analyzer\AttributeReader;
+use SymfonySwagger\Attribute\ApiResponse;
 
 class AttributeReaderTest extends TestCase
 {
@@ -90,6 +91,16 @@ class AttributeReaderTest extends TestCase
         // For now, we expect an empty array if the package is not installed
         $this->assertIsArray($attributes);
     }
+
+    public function testReadApiResponseAttribute(): void
+    {
+        $reflection = new \ReflectionMethod(TestController::class, 'apiResponseAction');
+        $attribute = $this->reader->readApiResponseAttribute($reflection);
+
+        $this->assertInstanceOf(ApiResponse::class, $attribute);
+        $this->assertSame(FilterDto::class, $attribute->type);
+        $this->assertTrue($attribute->collection);
+    }
 }
 
 /**
@@ -128,6 +139,11 @@ class TestController
 
     #[Route('/protected', methods: ['GET'])]
     public function protectedAction(): void
+    {
+    }
+
+    #[ApiResponse(type: FilterDto::class, collection: true)]
+    public function apiResponseAction(): void
     {
     }
 }

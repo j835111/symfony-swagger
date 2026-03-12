@@ -85,10 +85,3 @@ return static function (ContainerConfigurator $container): void {
         $services->load('SymfonySwagger\\Controller\\', $controllerDir);
     }
 };
-    $commandDir = __DIR__.'/../src/Command';
-    if (is_dir($commandDir)) {
-        $services->load('SymfonySwagger\\Command\\', $commandDir)
-        ->tag('console.command')
-    ;
-    }
-};

@@ -66,6 +66,23 @@ class SchemaDescriberTest extends TestCase
         $this->assertEquals('object', $schema['type']);
         $this->assertArrayHasKey('properties', $schema);
     }
+
+    public function testSchemaRequiredProperties(): void
+    {
+        $class = new \ReflectionClass(RequiredFieldsDto::class);
+
+        $this->describer->describe($class);
+
+        $schemas = $this->schemaRegistry->getSchemas();
+        $schema = $schemas['RequiredFieldsDto'];
+
+        $this->assertArrayHasKey('required', $schema);
+        $this->assertContains('name', $schema['required']);
+        $this->assertContains('count', $schema['required']);
+        $this->assertNotContains('optional', $schema['required']);
+        $this->assertNotContains('withDefault', $schema['required']);
+        $this->assertNotContains('maybe', $schema['required']);
+    }
 }
 
 // Test DTO class
@@ -74,4 +91,14 @@ class SimpleTestDto
     public string $name;
     public ?string $email = null;
     public int $age;
+}
+
+class RequiredFieldsDto
+{
+    public string $name;
+    public int $count;
+    public ?string $optional = null;
+    public int $withDefault = 1;
+    public ?int $maybe;
+    public static string $staticFlag = 'x';
 }
