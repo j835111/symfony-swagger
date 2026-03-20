@@ -6,6 +6,7 @@ namespace SymfonySwagger\Tests\Analyzer;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\PropertyInfo\Type;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 
 class TypeAnalyzerTest extends TestCase
@@ -57,7 +58,6 @@ class TypeAnalyzerTest extends TestCase
         $schema = $this->analyzer->analyze($reflection->getType());
 
         $this->assertSame('array', $schema['type']);
-        $this->assertIsArray($schema['items']);
     }
 
     public function testAnalyzeNullableType(): void
@@ -92,7 +92,6 @@ class TypeAnalyzerTest extends TestCase
         $reflection = new \ReflectionProperty(TestDto::class, 'status');
         $schema = $this->analyzer->analyze($reflection->getType());
 
-        // Union type 應該生成 oneOf
         $this->assertTrue(
             isset($schema['oneOf']) || isset($schema['type']),
             'Union type should have oneOf or simplified type',
@@ -163,12 +162,74 @@ class TypeAnalyzerTest extends TestCase
         $this->assertSame('object', $schema['type']);
     }
 
+    public function testConstructorWithSerializerGroups(): void
+    {
+        $analyzer = new TypeAnalyzer(maxDepth: 5, serializerGroups: ['read']);
+        $this->assertInstanceOf(TypeAnalyzer::class, $analyzer);
+    }
+
+    public function testAnalyzeWithNullType(): void
+    {
+        $schema = $this->analyzer->analyze(null);
+
+        $this->assertSame('string', $schema['type']);
+        $this->assertArrayHasKey('description', $schema);
+    }
+
+    public function testAnalyzeIterableType(): void
+    {
+        $reflection = new \ReflectionProperty(IterableTestDto::class, 'data');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('array', $schema['type']);
+    }
+
     public function testExtractFromDocBlockSimpleArray(): void
     {
         $reflection = new \ReflectionProperty(TestDto::class, 'items');
-        $elementType = $this->analyzer->extractFromDocBlock($reflection);
+        $result = $this->analyzer->extractFromDocBlock($reflection);
 
-        $this->assertSame('string', $elementType);
+        $this->assertIsArray($result);
+        $this->assertSame('string', $result[0]);
+        $this->assertNull($result[1]);
+    }
+
+    public function testExtractFromDocBlockList(): void
+    {
+        $reflection = new \ReflectionProperty(ListTestDto::class, 'ids');
+        $result = $this->analyzer->extractFromDocBlock($reflection);
+
+        $this->assertIsArray($result);
+        $this->assertSame('int', $result[0]);
+        $this->assertNull($result[1]);
+    }
+
+    public function testExtractFromDocBlockArrayKey(): void
+    {
+        $reflection = new \ReflectionProperty(ArrayKeyTestDto::class, 'mixed');
+        $result = $this->analyzer->extractFromDocBlock($reflection);
+
+        $this->assertIsArray($result);
+        $this->assertSame('mixed', $result[0]);
+        $this->assertNull($result[1]);
+    }
+
+    public function testExtractFromDocBlockArrayGeneric(): void
+    {
+        $reflection = new \ReflectionProperty(ArrayGenericTestDto::class, 'values');
+        $result = $this->analyzer->extractFromDocBlock($reflection);
+
+        $this->assertIsArray($result);
+        $this->assertSame('string', $result[0]);
+        $this->assertNull($result[1]);
+    }
+
+    public function testExtractFromDocBlockReturnsNullForNoDocBlock(): void
+    {
+        $reflection = new \ReflectionProperty(TestDto::class, 'name');
+        $result = $this->analyzer->extractFromDocBlock($reflection);
+
+        $this->assertNull($result);
     }
 
     public function testAnalyzePropertyWithDocBlock(): void
@@ -187,8 +248,20 @@ class TypeAnalyzerTest extends TestCase
         $schema = $this->analyzer->analyzeProperty($reflection);
 
         $this->assertSame('array', $schema['type']);
+        // For array<int, string>, the key type is int and value type is string
+        // OpenAPI uses additionalProperties for this pattern
+        $this->assertArrayHasKey('additionalProperties', $schema);
+        $this->assertSame('string', $schema['additionalProperties']['type']);
+    }
+
+    public function testAnalyzePropertyWithDocBlockList(): void
+    {
+        $reflection = new \ReflectionProperty(ListTestDto::class, 'ids');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
         $this->assertArrayHasKey('items', $schema);
-        $this->assertSame('string', $schema['items']['type']);
+        $this->assertSame('integer', $schema['items']['type']);
     }
 
     public function testMaxDepthProtection(): void
@@ -233,8 +306,31 @@ class TestDto
     /** @var string[] */
     public array $items;
 
-    /** @var array<int, AuthorDto> */
+    /** @var array<int, string> */
     public array $authors;
+}
+
+class IterableTestDto
+{
+    public iterable $data;
+}
+
+class ListTestDto
+{
+    /** @var list<int> */
+    public array $ids;
+}
+
+class ArrayKeyTestDto
+{
+    /** @var array-key[] */
+    public array $mixed;
+}
+
+class ArrayGenericTestDto
+{
+    /** @var array<string> */
+    public array $values;
 }
 
 class AuthorDto

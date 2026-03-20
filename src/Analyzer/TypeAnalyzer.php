@@ -4,23 +4,33 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Analyzer;
 
-use BackedEnum;
-use ReflectionClass;
+use Symfony\Component\PropertyInfo\Type as PropertyInfoType;
 
 /**
  * TypeAnalyzer - PHP 型別分析器.
  *
  * 負責將 PHP 型別轉換為 OpenAPI Schema 定義。
- * 支援內建型別、類別、Union Types、Nullable Types、Enum 等。
+ * 支援:
+ * - 內建型別、類別、Union Types、Nullable Types、Enum
+ * - DocBlock annotations
+ * - Symfony PropertyInfo
+ * - Doctrine ORM attributes
+ * - Symfony Serializer groups
  */
 class TypeAnalyzer
 {
+    private TypeInfoExtractor $typeInfoExtractor;
+    private DoctrineAttributeExtractor $doctrineExtractor;
+
     /**
      * @param int $maxDepth 最大遞迴深度,防止無限循環
      */
     public function __construct(
         private readonly int $maxDepth = 5,
+        private readonly ?array $serializerGroups = null,
     ) {
+        $this->typeInfoExtractor = new TypeInfoExtractor();
+        $this->doctrineExtractor = new DoctrineAttributeExtractor();
     }
 
     /**
@@ -84,7 +94,9 @@ class TypeAnalyzer
             'int' => ['type' => 'integer', 'format' => 'int32'],
             'float' => ['type' => 'number', 'format' => 'float'],
             'bool' => ['type' => 'boolean'],
-            'array' => ['type' => 'array', 'items' => ['type' => 'string']], // 預設為 string array
+            'array' => ['type' => 'array'],
+            'iterable' => ['type' => 'array'],
+            'object' => ['type' => 'object'],
             'object' => ['type' => 'object'],
             'mixed' => ['description' => 'Mixed type'],
             default => ['type' => 'string'],
@@ -105,7 +117,6 @@ class TypeAnalyzer
         $hasNull = false;
 
         foreach ($types as $subType) {
-            // 處理 null type
             if ($subType instanceof \ReflectionNamedType && 'null' === $subType->getName()) {
                 $hasNull = true;
                 continue;
@@ -114,7 +125,6 @@ class TypeAnalyzer
             $schemas[] = $this->analyze($subType, $depth, $context);
         }
 
-        // 只有一個非 null 型別,直接返回
         if (1 === \count($schemas)) {
             $schema = $schemas[0];
             if ($hasNull) {
@@ -124,7 +134,6 @@ class TypeAnalyzer
             return $schema;
         }
 
-        // 多個型別,使用 oneOf
         $schema = ['oneOf' => $schemas];
         if ($hasNull) {
             $schema['nullable'] = true;
@@ -145,20 +154,17 @@ class TypeAnalyzer
     {
         $className = $class->getName();
 
-        // 檢測循環引用
         if (isset($context[$className])) {
             return [
                 '$ref' => '#/components/schemas/'.$class->getShortName(),
             ];
         }
 
-        // 處理特殊類別
         $specialSchema = $this->analyzeSpecialClass($class);
         if (null !== $specialSchema) {
             return $specialSchema;
         }
 
-        // 一般 DTO 類別,標記為引用
         return [
             '$ref' => '#/components/schemas/'.$class->getShortName(),
         ];
@@ -175,17 +181,14 @@ class TypeAnalyzer
     {
         $className = $class->getName();
 
-        // DateTime 相關類別
         if ($class->implementsInterface(\DateTimeInterface::class)) {
             return ['type' => 'string', 'format' => 'date-time'];
         }
 
-        // 排除 Symfony HTTP 內部類別 (不應出現在 API 文檔中)
         if ($this->isSymfonyInternalClass($className)) {
             return ['type' => 'object'];
         }
 
-        // BackedEnum
         if ($class->isEnum() && $class->implementsInterface(\BackedEnum::class)) {
             /** @var class-string<\BackedEnum> $className */
             $cases = $className::cases();
@@ -198,7 +201,6 @@ class TypeAnalyzer
             ];
         }
 
-        // 普通 Enum (PHP 8.1+, 無 backing value)
         if ($class->isEnum()) {
             /** @var class-string<\UnitEnum> $className */
             $cases = $className::cases();
@@ -214,7 +216,7 @@ class TypeAnalyzer
     }
 
     /**
-     * 檢查是否為 Symfony 內部類別 (不應在 OpenAPI 中暴露).
+     * 檢查是否為 Symfony 內部類別.
      *
      * @param string $className 完整類別名稱
      */
@@ -245,46 +247,122 @@ class TypeAnalyzer
     /**
      * 從 DocBlock 提取陣列元素型別.
      *
-     * 例如: @var int[] 或 @var array<int, string>
+     * @return array{0: string, 1: string|null}|null [元素型別, 鍵型別] 或 null
      */
-    public function extractFromDocBlock(\ReflectionProperty|\ReflectionParameter $reflection): ?string
+    public function extractFromDocBlock(\ReflectionProperty|\ReflectionParameter $reflection): ?array
     {
         $docComment = $reflection->getDocComment();
         if (false === $docComment) {
             return null;
         }
 
-        // 匹配 @var Type[]
-        if (preg_match('/@var\s+(\w+)\[\]/', $docComment, $matches)) {
-            return $matches[1];
+        // @var string[]
+        if (preg_match('#@var\s+([\w]+)\[\]#', $docComment, $matches)) {
+            return [$matches[1], null];
         }
 
-        // 匹配 @var array<Type> 或 @var array<int, Type>
-        if (preg_match('/@var\s+array<(?:\w+,\s*)?(\w+)>/', $docComment, $matches)) {
-            return $matches[1];
+        // @var list<int>
+        if (preg_match('#@var\s+list<([\w]+)>#', $docComment, $matches)) {
+            return [$matches[1], null];
+        }
+
+        // @var array-key[]
+        if (preg_match('#@var\s+array-key\[\]#', $docComment, $matches)) {
+            return ['mixed', null];
+        }
+
+        // @var array<int, AuthorDto> - with key type
+        if (preg_match('#@var\s+array<[\w]+,\s*([\w]+)>#', $docComment, $matches)) {
+            return [$matches[1], 'string'];
+        }
+
+        // @var array<string> - simple generic
+        if (preg_match('#@var\s+array<([\w]+)>#', $docComment, $matches)) {
+            return [$matches[1], null];
         }
 
         return null;
     }
 
-    /**
-     * 分析屬性並考慮 DocBlock.
-     *
-     * @return array<string, mixed>
-     */
     public function analyzeProperty(\ReflectionProperty $property, int $depth = 0, array $context = []): array
     {
         $schema = $this->analyze($property->getType(), $depth, $context);
+        $className = $property->getDeclaringClass()->getName();
+        $propertyName = $property->getName();
 
-        // 如果是 array 型別,嘗試從 DocBlock 推導元素型別
         if (isset($schema['type']) && 'array' === $schema['type']) {
-            $elementType = $this->extractFromDocBlock($property);
-            if (null !== $elementType) {
-                $schema['items'] = $this->analyzeTypeString($elementType, $depth + 1, $context);
+            $extracted = $this->extractArrayElementType($property, $context);
+            if (null !== $extracted) {
+                if (isset($extracted['additionalProperties'])) {
+                    $schema['additionalProperties'] = $extracted['additionalProperties'];
+                } else {
+                    $schema['items'] = $extracted;
+                }
+            } else {
+                throw new \LogicException(\sprintf('Property "%s:%s" is an array, but its items type is not specified. Please add a @var annotation, e.g., @var string[], @var array<UserDto>, or @var list<int>.', $className, $propertyName));
             }
         }
 
         return $schema;
+    }
+
+    /**
+     * 提取陣列元素類型（從多個來源）.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function extractArrayElementType(\ReflectionProperty $property, array $context): ?array
+    {
+        $className = $property->getDeclaringClass()->getName();
+        $propertyName = $property->getName();
+        $namespace = $property->getDeclaringClass()->getNamespaceName();
+
+        // 1. 從 DocBlock 提取
+        $docBlockType = $this->extractFromDocBlock($property);
+        if (null !== $docBlockType) {
+            [$elementType, $keyType] = $docBlockType;
+
+            if (null !== $keyType) {
+                return [
+                    'type' => 'array',
+                    'additionalProperties' => $this->analyzeTypeString($elementType, $context, $namespace),
+                ];
+            }
+
+            return $this->analyzeTypeString($elementType, $context, $namespace);
+        }
+
+        // 2. 從 Doctrine Attribute 提取
+        $doctrineInfo = $this->doctrineExtractor->extract($property);
+        if (null !== $doctrineInfo) {
+            $doctrineSchema = $this->doctrineExtractor->convertToSchema($doctrineInfo, $namespace);
+            if (null !== $doctrineSchema) {
+                return $doctrineSchema;
+            }
+        }
+
+        // 3. 從 PropertyInfo 提取
+        if ($this->typeInfoExtractor->isAvailable()) {
+            $propertyInfo = $this->typeInfoExtractor->getPropertyInfo(
+                $className,
+                $propertyName,
+                $this->serializerGroups,
+            );
+
+            foreach ($propertyInfo['types'] as $type) {
+                if ($type instanceof PropertyInfoType && $type->isCollection()) {
+                    $collectionValueTypes = $type->getCollectionValueTypes();
+                    foreach ($collectionValueTypes as $valueType) {
+                        $schema = $this->typeInfoExtractor->convertTypeToSchema($valueType, 0, $context);
+                        if (null !== $schema) {
+                            return $schema;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -294,9 +372,8 @@ class TypeAnalyzer
      *
      * @return array<string, mixed>
      */
-    private function analyzeTypeString(string $typeString, int $depth, array $context): array
+    private function analyzeTypeString(string $typeString, array $context, ?string $namespace = null): array
     {
-        // 基本型別對應
         return match ($typeString) {
             'string' => ['type' => 'string'],
             'int', 'integer' => ['type' => 'integer'],
@@ -304,9 +381,33 @@ class TypeAnalyzer
             'bool', 'boolean' => ['type' => 'boolean'],
             'array' => ['type' => 'array'],
             'object' => ['type' => 'object'],
-            default => class_exists($typeString)
-                ? $this->analyze(new \ReflectionClass($typeString), $depth, $context)
-                : ['type' => 'string'],
+            'mixed' => ['description' => 'Mixed type'],
+            'null' => ['type' => 'string', 'nullable' => true],
+            'resource' => ['type' => 'string', 'description' => 'Resource'],
+            default => $this->resolveClassAndAnalyze($typeString, $context, $namespace),
         };
+    }
+
+    /**
+     * 解析類別名稱並分析.
+     *
+     * @param array<string, true> $context
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveClassAndAnalyze(string $typeString, array $context, ?string $namespace): array
+    {
+        if (class_exists($typeString)) {
+            return $this->analyze(new \ReflectionClass($typeString), 0, $context);
+        }
+
+        if (null !== $namespace) {
+            $fullClassName = $namespace.'\\'.$typeString;
+            if (class_exists($fullClassName)) {
+                return $this->analyze(new \ReflectionClass($fullClassName), 0, $context);
+            }
+        }
+
+        return ['type' => 'string'];
     }
 }
