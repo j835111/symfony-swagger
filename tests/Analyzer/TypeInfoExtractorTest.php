@@ -151,6 +151,57 @@ class TypeInfoExtractorTest extends TestCase
         $this->assertArrayHasKey('readable', $access);
         $this->assertArrayHasKey('writable', $access);
     }
+
+    public function testConvertTypeToSchemaCollectionWithStringKeysUsesAdditionalProperties(): void
+    {
+        $type = new Type(
+            'array',
+            false,
+            null,
+            true,
+            [new Type('string')],
+            [new Type('int')],
+        );
+        $schema = $this->extractor->convertTypeToSchema($type);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertArrayHasKey('additionalProperties', $schema);
+        $this->assertSame('integer', $schema['additionalProperties']['type']);
+    }
+
+    public function testConvertTypeToSchemaCollectionWithoutItemsFallsBackToStringItems(): void
+    {
+        $type = new Type('array', false, null, true, [new Type('int')], []);
+        $schema = $this->extractor->convertTypeToSchema($type);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertSame(['type' => 'string'], $schema['items']);
+    }
+
+    public function testGetPropertyInfoReturnsFallbackWhenExtractorUnavailable(): void
+    {
+        $this->disableInternalExtractor();
+
+        $result = $this->extractor->getPropertyInfo(TIETestDto::class, 'name');
+
+        $this->assertSame([], $result['types']);
+        $this->assertNull($result['description']);
+    }
+
+    public function testGetPropertyAccessReturnsFallbackWhenExtractorUnavailable(): void
+    {
+        $this->disableInternalExtractor();
+
+        $access = $this->extractor->getPropertyAccess(TIETestDto::class, 'name');
+
+        $this->assertSame(['readable' => true, 'writable' => true], $access);
+    }
+
+    private function disableInternalExtractor(): void
+    {
+        $property = new \ReflectionProperty(TypeInfoExtractor::class, 'extractor');
+        $property->setValue($this->extractor, null);
+    }
 }
 
 class TIETestDto

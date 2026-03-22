@@ -276,6 +276,28 @@ class DoctrineAttributeExtractorTest extends TestCase
         $this->assertSame(ProfileDto::class, $result['targetEntity']);
         $this->assertTrue($result['nullable']);
     }
+
+    public function testExtractFromSerializerTypeBuiltinCollection(): void
+    {
+        $reflection = new \ReflectionProperty(SerializerTypeTestDto::class, 'ids');
+        $result = $this->extractor->extract($reflection);
+
+        $this->assertNotNull($result);
+        $this->assertSame('integer', $result['type']);
+        $this->assertTrue($result['isCollection']);
+        $this->assertNull($result['targetEntity']);
+    }
+
+    public function testExtractFromSerializerTypeTargetEntity(): void
+    {
+        $reflection = new \ReflectionProperty(SerializerTypeTestDto::class, 'authors');
+        $result = $this->extractor->extract($reflection);
+
+        $this->assertNotNull($result);
+        $this->assertSame('object', $result['type']);
+        $this->assertTrue($result['isCollection']);
+        $this->assertSame('AuthorDtoDoctrine', $result['targetEntity']);
+    }
 }
 
 // Test DTOs for Doctrine attributes
@@ -344,4 +366,22 @@ class UserDto
 class ItemDto
 {
     public string $title;
+}
+
+class SerializerTypeTestDto
+{
+    #[Type('array<int, integer>')]
+    public array $ids;
+
+    #[Type('AuthorDtoDoctrine[]')]
+    public array $authors;
+}
+
+#[\Attribute(\Attribute::TARGET_PROPERTY)]
+class Type
+{
+    public function __construct(
+        public readonly string $name,
+    ) {
+    }
 }

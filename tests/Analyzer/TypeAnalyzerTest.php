@@ -154,6 +154,15 @@ class TypeAnalyzerTest extends TestCase
         $this->assertTrue($schema['nullable']);
     }
 
+    public function testAnalyzeSingleTypeUnionWithNullSimplifiesSchema(): void
+    {
+        $reflection = new \ReflectionProperty(NullableOnlyDto::class, 'name');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('string', $schema['type']);
+        $this->assertTrue($schema['nullable']);
+    }
+
     public function testAnalyzeSymfonyInternalClass(): void
     {
         $reflection = new \ReflectionProperty(TestDto::class, 'upload');
@@ -264,6 +273,95 @@ class TypeAnalyzerTest extends TestCase
         $this->assertSame('integer', $schema['items']['type']);
     }
 
+    public function testAnalyzePropertyWithDoctrineAttributeFallback(): void
+    {
+        $reflection = new \ReflectionProperty(DoctrineBackedArrayDto::class, 'items');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertArrayHasKey('items', $schema);
+        $this->assertSame('array', $schema['items']['type']);
+        $this->assertStringContainsString('DoctrineBackedItemDto', $schema['items']['items']['$ref']);
+    }
+
+    public function testAnalyzePropertyThrowsWhenArrayItemsCannotBeDetermined(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('items type is not specified');
+
+        $reflection = new \ReflectionProperty(MissingArrayTypeDto::class, 'items');
+        $this->analyzer->analyzeProperty($reflection);
+    }
+
+    public function testAnalyzePropertyResolvesDocBlockClassInSameNamespace(): void
+    {
+        $reflection = new \ReflectionProperty(NamespaceResolvedArrayDto::class, 'children');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertStringContainsString('NamespaceResolvedChildDto', $schema['items']['$ref']);
+    }
+
+    public function testAnalyzePropertyWithResourceDocBlock(): void
+    {
+        $reflection = new \ReflectionProperty(ResourceArrayDto::class, 'streams');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertSame('string', $schema['items']['type']);
+        $this->assertSame('Resource', $schema['items']['description']);
+    }
+
+    public function testAnalyzeSpecialClassReturnsNullForRegularClass(): void
+    {
+        $resolver = \Closure::bind(
+            fn (\ReflectionClass $class): ?array => $this->analyzeSpecialClass($class),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $schema = $resolver(new \ReflectionClass(AuthorDto::class));
+
+        $this->assertNull($schema);
+    }
+
+    public function testIsSymfonyInternalClassReturnsFalseForUserClass(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className): bool => $this->isSymfonyInternalClass($className),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $this->assertFalse($resolver(AuthorDto::class));
+    }
+
+    public function testAnalyzeTypeStringResolvesNamespaceClass(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->analyzeTypeString($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $schema = $resolver('NamespaceResolvedChildDto', [], __NAMESPACE__);
+
+        $this->assertStringContainsString('NamespaceResolvedChildDto', $schema['$ref']);
+    }
+
+    public function testAnalyzeTypeStringFallsBackToStringForUnknownType(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->analyzeTypeString($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $schema = $resolver('DefinitelyMissingType', [], __NAMESPACE__);
+
+        $this->assertSame(['type' => 'string'], $schema);
+    }
+
     public function testMaxDepthProtection(): void
     {
         $analyzer = new TypeAnalyzer(maxDepth: 0);
@@ -331,6 +429,55 @@ class ArrayGenericTestDto
 {
     /** @var array<string> */
     public array $values;
+}
+
+class DoctrineBackedArrayDto
+{
+    #[\Doctrine\ORM\Mapping\OneToMany(targetEntity: DoctrineBackedItemDto::class, mappedBy: 'owner')]
+    public array $items;
+}
+
+class DoctrineBackedItemDto
+{
+    public string $name;
+}
+
+class MissingArrayTypeDto
+{
+    public array $items;
+}
+
+class NamespaceResolvedArrayDto
+{
+    /** @var NamespaceResolvedChildDto[] */
+    public array $children;
+}
+
+class NamespaceResolvedChildDto
+{
+    public string $value;
+}
+
+class ResourceArrayDto
+{
+    /** @var resource[] */
+    public array $streams;
+}
+
+class UnknownArrayDto
+{
+    /** @var UnknownType[] */
+    public array $values;
+}
+
+class UnknownType
+{
+}
+
+
+class NullableOnlyDto
+{
+    public ?string $name;
 }
 
 class AuthorDto

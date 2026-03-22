@@ -6,6 +6,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use SymfonySwagger\Analyzer\AttributeReader;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
+use SymfonySwagger\Routing\AutoRouteLoader;
 use SymfonySwagger\Service\Describer\OperationDescriber;
 use SymfonySwagger\Service\Describer\RouteDescriber;
 use SymfonySwagger\Service\Describer\SchemaDescriber;
@@ -59,6 +60,14 @@ return static function (ContainerConfigurator $container): void {
             service('cache.app')->nullOnInvalid(),
             param('symfony_swagger.config'),
             service('logger')->nullOnInvalid(),
+        ])
+    ;
+
+    $services->set(AutoRouteLoader::class)
+        ->decorate('routing.loader')
+        ->args([
+            service('.inner'),
+            param('symfony_swagger.enabled'),
         ])
     ;
 

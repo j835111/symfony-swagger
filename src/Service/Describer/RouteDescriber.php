@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service\Describer;
 
-use ReflectionMethod;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -89,15 +88,33 @@ class RouteDescriber
     {
         $controller = $route->getDefault('_controller');
 
-        if (!\is_string($controller)) {
-            return null;
+        if (\is_array($controller) && 2 === \count($controller)) {
+            [$classOrObject, $methodName] = $controller;
+
+            if (\is_object($classOrObject) && \is_string($methodName)) {
+                return [$classOrObject::class, $methodName];
+            }
+
+            if (\is_string($classOrObject) && class_exists($classOrObject) && \is_string($methodName)) {
+                return [$classOrObject, $methodName];
+            }
         }
 
-        // 格式: ClassName::methodName
-        if (str_contains($controller, '::')) {
-            $parts = explode('::', $controller, 2);
-            if (2 === \count($parts) && class_exists($parts[0])) {
-                return [$parts[0], $parts[1]];
+        if (\is_object($controller) && !$controller instanceof \Closure && method_exists($controller, '__invoke')) {
+            return [$controller::class, '__invoke'];
+        }
+
+        if (\is_string($controller)) {
+            // 格式: ClassName::methodName
+            if (str_contains($controller, '::')) {
+                $parts = explode('::', $controller, 2);
+                if (2 === \count($parts) && class_exists($parts[0])) {
+                    return [$parts[0], $parts[1]];
+                }
+            }
+
+            if (class_exists($controller) && method_exists($controller, '__invoke')) {
+                return [$controller, '__invoke'];
             }
         }
 

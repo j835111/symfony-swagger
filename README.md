@@ -10,7 +10,7 @@
 - ✅ 智能型別分析 (支援 DTO、Union Types、Nullable Types、Enum)
 - ✅ 多層快取機制 (Request + Symfony Cache)
 - ✅ Schema 自動生成與循環引用偵測
-- ✅ 與 Symfony 6/7 完美整合
+- ✅ 與 Symfony 6/7 相容
 - ✅ 遵循 Symfony Bundle 最佳實踐
 
 ## 系統需求
@@ -28,7 +28,7 @@ composer require your-vendor/symfony-swagger-bundle
 
 Bundle 會自動:
 - 載入預設設定 (無需手動建立設定檔)
-- 註冊 API 文件路由到 `/api/docs.json`
+- 自動註冊內建文件路由到 `/api/docs.json`、`/api/docs`、`/api/docs/scalar`
 
 > **注意**: 如果你沒有使用 Symfony Flex,需要手動註冊 Bundle:
 > ```php

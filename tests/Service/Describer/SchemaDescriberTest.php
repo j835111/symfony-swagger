@@ -83,6 +83,87 @@ class SchemaDescriberTest extends TestCase
         $this->assertNotContains('withDefault', $schema['required']);
         $this->assertNotContains('maybe', $schema['required']);
     }
+
+    public function testDescribeRegistersNestedDtoSchemas(): void
+    {
+        $class = new \ReflectionClass(NestedParentDto::class);
+
+        $this->describer->describe($class);
+
+        $schemas = $this->schemaRegistry->getSchemas();
+
+        $this->assertArrayHasKey('NestedParentDto', $schemas);
+        $this->assertArrayHasKey('NestedChildDto', $schemas);
+        $this->assertSame('#/components/schemas/NestedChildDto', $schemas['NestedParentDto']['properties']['child']['$ref']);
+    }
+
+    public function testDescribeRegistersNestedArrayDtoSchemas(): void
+    {
+        $class = new \ReflectionClass(NestedArrayParentDto::class);
+
+        $this->describer->describe($class);
+
+        $schemas = $this->schemaRegistry->getSchemas();
+
+        $this->assertArrayHasKey('NestedArrayParentDto', $schemas);
+        $this->assertArrayHasKey('NestedChildDto', $schemas);
+        $this->assertSame('#/components/schemas/NestedChildDto', $schemas['NestedArrayParentDto']['properties']['items']['items']['$ref']);
+    }
+
+    public function testDescribeReturnsExistingRefWithoutDuplicatingSchema(): void
+    {
+        $class = new \ReflectionClass(SimpleTestDto::class);
+
+        $first = $this->describer->describe($class);
+        $second = $this->describer->describe($class);
+
+        $this->assertSame($first, $second);
+        $this->assertCount(1, $this->schemaRegistry->getSchemas());
+    }
+
+    public function testDescribePropertiesSkipsStaticFields(): void
+    {
+        $resolver = \Closure::bind(
+            fn (\ReflectionClass $class): array => $this->describeProperties($class, 0),
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $properties = $resolver(new \ReflectionClass(RequiredFieldsDto::class));
+
+        $this->assertArrayNotHasKey('staticFlag', $properties);
+        $this->assertArrayHasKey('name', $properties);
+    }
+
+    public function testGetRequiredPropertiesSkipsNullableAndDefaultedFields(): void
+    {
+        $resolver = \Closure::bind(
+            fn (\ReflectionClass $class): array => $this->getRequiredProperties($class),
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $required = $resolver(new \ReflectionClass(RequiredFieldsDto::class));
+
+        $this->assertContains('name', $required);
+        $this->assertNotContains('optional', $required);
+        $this->assertNotContains('withDefault', $required);
+    }
+
+    public function testRegisterNestedSchemaForClassNameSkipsSpecialNonRefTypes(): void
+    {
+        $resolver = \Closure::bind(
+            function (string $className): void {
+                $this->registerNestedSchemaForClassName($className, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver(\DateTime::class);
+
+        $this->assertSame([], $this->schemaRegistry->getSchemas());
+    }
 }
 
 // Test DTO class
@@ -101,4 +182,20 @@ class RequiredFieldsDto
     public int $withDefault = 1;
     public ?int $maybe;
     public static string $staticFlag = 'x';
+}
+
+class NestedParentDto
+{
+    public NestedChildDto $child;
+}
+
+class NestedArrayParentDto
+{
+    /** @var NestedChildDto[] */
+    public array $items;
+}
+
+class NestedChildDto
+{
+    public string $name;
 }

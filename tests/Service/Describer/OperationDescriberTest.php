@@ -200,6 +200,31 @@ class OperationDescriberTest extends TestCase
         }
     }
 
+    public function testPathParameterUsesControllerParameterType(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithPathParameters::class, 'show');
+        $route = new Route('/api/users/{id}');
+
+        $result = $this->describer->describe($method, $route);
+
+        $pathParams = array_values(array_filter($result['parameters'] ?? [], fn ($p) => 'path' === $p['in']));
+        $this->assertCount(1, $pathParams);
+        $this->assertSame('integer', $pathParams[0]['schema']['type']);
+        $this->assertSame('int32', $pathParams[0]['schema']['format']);
+    }
+
+    public function testPathParameterFallsBackToRouteRequirement(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithPathParameters::class, 'slug');
+        $route = new Route('/api/orders/{orderId}', requirements: ['orderId' => '\d+']);
+
+        $result = $this->describer->describe($method, $route);
+
+        $pathParams = array_values(array_filter($result['parameters'] ?? [], fn ($p) => 'path' === $p['in']));
+        $this->assertCount(1, $pathParams);
+        $this->assertSame('integer', $pathParams[0]['schema']['type']);
+    }
+
     public function testQueryParameterNullable(): void
     {
         $method = new \ReflectionMethod($this::class, 'testQueryParameterNullable');
@@ -261,6 +286,35 @@ class OperationDescriberTest extends TestCase
         $schema = $result['requestBody']['content']['application/json']['schema'];
         $this->assertSame('array', $schema['type']);
         $this->assertSame('#/components/schemas/TestDtoForDescriber', $schema['items']['$ref']);
+    }
+
+    public function testDescribeWithOptionalMapRequestPayloadDtoMarksRequestBodyOptional(): void
+    {
+        if (!class_exists(MapRequestPayload::class)) {
+            $this->markTestSkipped('MapRequestPayload not available.');
+        }
+
+        $method = new \ReflectionMethod(TestControllerWithRequestPayload::class, 'optionalCreate');
+        $route = new Route('/api/users/optional');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $this->assertFalse($result['requestBody']['required']);
+    }
+
+    public function testDescribeWithMapRequestPayloadArrayWithoutValidDtoDoesNotCreateRequestBody(): void
+    {
+        if (!class_exists(MapRequestPayload::class)) {
+            $this->markTestSkipped('MapRequestPayload not available.');
+        }
+
+        $method = new \ReflectionMethod(TestControllerWithRequestPayload::class, 'bulkCreateWithoutValidDto');
+        $route = new Route('/api/users/bulk-invalid');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayNotHasKey('requestBody', $result);
     }
 
     public function testDescribeWithMapQueryStringFlattensParameters(): void
@@ -343,6 +397,105 @@ class OperationDescriberTest extends TestCase
         $this->assertSame('string', $content['properties']['files']['items']['type']);
         $this->assertSame('binary', $content['properties']['files']['items']['format']);
     }
+
+    public function testDescribeWithOptionalUploadedFileMarksMultipartBodyOptional(): void
+    {
+        if (!class_exists(MapUploadedFile::class) || !class_exists(UploadedFile::class)) {
+            $this->markTestSkipped('MapUploadedFile or UploadedFile not available.');
+        }
+
+        $method = new \ReflectionMethod(TestControllerWithUploads::class, 'uploadOptional');
+        $route = new Route('/api/upload-optional');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertArrayHasKey('requestBody', $result);
+        $this->assertFalse($result['requestBody']['required']);
+        $schema = $result['requestBody']['content']['multipart/form-data']['schema'];
+        $this->assertArrayNotHasKey('required', $schema);
+    }
+
+    public function testDescribeWithApiResponseCollectionUsesArrayDataSchema(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithApiResponses::class, 'collection');
+        $route = new Route('/api/users');
+
+        $result = $this->describer->describe($method, $route);
+
+        $data = $result['responses']['200']['content']['application/json']['schema']['properties']['data'];
+        $this->assertSame('array', $data['type']);
+        $this->assertSame('#/components/schemas/TestDtoForDescriber', $data['items']['$ref']);
+    }
+
+    public function testDescribeWithApiResponseInvalidTypeFallsBackToNullableData(): void
+    {
+        $reflection = new \ReflectionClass(\SymfonySwagger\Attribute\ApiResponse::class);
+        /** @var \SymfonySwagger\Attribute\ApiResponse $apiResponse */
+        $apiResponse = $reflection->newInstanceWithoutConstructor();
+        $this->setReadonlyProperty($apiResponse, 'type', 'MissingDto');
+        $this->setReadonlyProperty($apiResponse, 'collection', false);
+        $this->setReadonlyProperty($apiResponse, 'file', false);
+        $this->setReadonlyProperty($apiResponse, 'fileMediaType', 'application/octet-stream');
+
+        $resolver = \Closure::bind(
+            fn (\SymfonySwagger\Attribute\ApiResponse $response): array => $this->buildEnvelopeSchema($response),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $schema = $resolver($apiResponse);
+        $data = $schema['properties']['data'];
+        $this->assertTrue($data['nullable']);
+        $this->assertSame('Response data', $data['description']);
+    }
+
+    public function testDescribePathParameterSchemaFallsBackToStringWithoutHints(): void
+    {
+        $resolver = \Closure::bind(
+            fn (\ReflectionMethod $method, Route $route, string $param): array => $this->describePathParameterSchema($method, $route, $param),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $schema = $resolver(new \ReflectionMethod(TestControllerWithPathParameters::class, 'slug'), new Route('/api/users/{missing}'), 'missing');
+
+        $this->assertSame(['type' => 'string'], $schema);
+    }
+
+    public function testBuildFileResponseIncludesDownloadHeaders(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $mediaType): array => $this->buildFileResponse($mediaType),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $response = $resolver('application/pdf');
+
+        $this->assertSame('File download', $response['200']['description']);
+        $this->assertArrayHasKey('Content-Disposition', $response['200']['headers']);
+        $this->assertSame('binary', $response['200']['content']['application/pdf']['schema']['format']);
+    }
+
+    public function testBuildEnvelopeSchemaUsesNullableFallbackDataWhenResponseMissing(): void
+    {
+        $resolver = \Closure::bind(
+            fn (): array => $this->buildEnvelopeSchema(null),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $schema = $resolver();
+
+        $this->assertSame('object', $schema['type']);
+        $this->assertTrue($schema['properties']['data']['nullable']);
+    }
+
+    private function setReadonlyProperty(object $object, string $property, mixed $value): void
+    {
+        $reflectionProperty = new \ReflectionProperty($object, $property);
+        $reflectionProperty->setValue($object, $value);
+    }
 }
 
 // Test fixtures
@@ -401,6 +554,16 @@ class TestControllerWithRequestPayload
     {
         return [];
     }
+
+    public function optionalCreate(#[MapRequestPayload] ?TestDtoForDescriber $dto = null): array
+    {
+        return [];
+    }
+
+    public function bulkCreateWithoutValidDto(#[MapRequestPayload(type: 'MissingDto')] array $items): array
+    {
+        return [];
+    }
 }
 
 class TestControllerWithUploads
@@ -411,6 +574,33 @@ class TestControllerWithUploads
     }
 
     public function uploadMany(#[MapUploadedFile(name: 'files')] array $files): array
+    {
+        return [];
+    }
+
+    public function uploadOptional(#[MapUploadedFile(name: 'file')] ?UploadedFile $file = null): array
+    {
+        return [];
+    }
+}
+
+class TestControllerWithPathParameters
+{
+    public function show(int $id): array
+    {
+        return [];
+    }
+
+    public function slug(string $slug): array
+    {
+        return [];
+    }
+}
+
+class TestControllerWithApiResponses
+{
+    #[\SymfonySwagger\Attribute\ApiResponse(type: TestDtoForDescriber::class, collection: true)]
+    public function collection(): array
     {
         return [];
     }

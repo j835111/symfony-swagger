@@ -84,10 +84,67 @@ class SchemaDescriber
             }
 
             $propertyName = $property->getName();
+            $this->registerNestedSchemasForProperty($property, $depth);
             $properties[$propertyName] = $this->typeAnalyzer->analyzeProperty($property, $depth + 1, []);
         }
 
         return $properties;
+    }
+
+    private function registerNestedSchemasForProperty(\ReflectionProperty $property, int $depth): void
+    {
+        $type = $property->getType();
+
+        if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
+            $this->registerNestedSchemaForClassName($type->getName(), $depth + 1);
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $subType) {
+                if ($subType instanceof \ReflectionNamedType && !$subType->isBuiltin()) {
+                    $this->registerNestedSchemaForClassName($subType->getName(), $depth + 1);
+                }
+            }
+        }
+
+        if ($type instanceof \ReflectionNamedType && \in_array($type->getName(), ['array', 'iterable'], true)) {
+            $docBlockType = $this->typeAnalyzer->extractFromDocBlock($property);
+            if (null !== $docBlockType) {
+                [$elementType] = $docBlockType;
+                $namespace = $property->getDeclaringClass()->getNamespaceName();
+                $this->registerNestedSchemaForTypeString($elementType, $namespace, $depth + 1);
+            }
+        }
+    }
+
+    private function registerNestedSchemaForTypeString(string $typeString, ?string $namespace, int $depth): void
+    {
+        if (class_exists($typeString)) {
+            $this->registerNestedSchemaForClassName($typeString, $depth);
+
+            return;
+        }
+
+        if (null === $namespace) {
+            return;
+        }
+
+        $className = $namespace.'\\'.$typeString;
+        if (class_exists($className)) {
+            $this->registerNestedSchemaForClassName($className, $depth);
+        }
+    }
+
+    private function registerNestedSchemaForClassName(string $className, int $depth): void
+    {
+        $reflectionClass = new \ReflectionClass($className);
+        $schema = $this->typeAnalyzer->analyze($reflectionClass, $depth);
+
+        if (!isset($schema['$ref'])) {
+            return;
+        }
+
+        $this->describe($reflectionClass, $depth);
     }
 
     /**

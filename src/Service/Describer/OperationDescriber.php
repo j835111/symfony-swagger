@@ -71,7 +71,7 @@ class OperationDescriber
                 'name' => $paramName,
                 'in' => 'path',
                 'required' => true,
-                'schema' => ['type' => 'string'],
+                'schema' => $this->describePathParameterSchema($method, $route, $paramName),
             ];
         }
 
@@ -153,6 +153,30 @@ class OperationDescriber
         }
 
         return $parameters;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function describePathParameterSchema(\ReflectionMethod $method, Route $route, string $paramName): array
+    {
+        foreach ($method->getParameters() as $parameter) {
+            if ($parameter->getName() !== $paramName) {
+                continue;
+            }
+
+            $schema = $this->typeAnalyzer->analyze($parameter->getType());
+            unset($schema['nullable']);
+
+            return $schema;
+        }
+
+        $requirement = $route->getRequirement($paramName);
+        if (null !== $requirement && preg_match('/(?:\\\\d\+|\[0-9\]\+|\^?\d\+\$?)/', $requirement)) {
+            return ['type' => 'integer', 'format' => 'int32'];
+        }
+
+        return ['type' => 'string'];
     }
 
     /**

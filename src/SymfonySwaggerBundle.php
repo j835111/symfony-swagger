@@ -6,7 +6,6 @@ namespace SymfonySwagger;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
-use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /**
  * SymfonySwaggerBundle.
@@ -15,7 +14,7 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  *
  * Features:
  * - Auto-loads default configuration (no manual config file needed)
- * - Auto-registers API documentation route at /api/docs.json
+ * - Ships a route resource for the built-in documentation endpoints
  */
 class SymfonySwaggerBundle extends Bundle
 {
@@ -53,15 +52,5 @@ class SymfonySwaggerBundle extends Bundle
             ],
             'generation_mode' => 'runtime',
         ]);
-    }
-
-    /**
-     * Load routes automatically.
-     *
-     * Registers the built-in Swagger documentation controller.
-     */
-    public function loadRoutes(RoutingConfigurator $routes): void
-    {
-        $routes->import($this->getPath().'/Controller', 'attribute');
     }
 }
