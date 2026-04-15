@@ -8,6 +8,7 @@ use Symfony\Component\PropertyInfo\Extractor\ConstructorExtractor;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
 
 /**
@@ -21,7 +22,7 @@ use Symfony\Component\PropertyInfo\Type;
  */
 class TypeInfoExtractor
 {
-    private ?PropertyInfoExtractor $extractor = null;
+    private ?PropertyInfoExtractorInterface $extractor = null;
 
     public function __construct()
     {

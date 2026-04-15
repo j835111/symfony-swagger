@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymfonySwagger\Tests\Analyzer;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
 use SymfonySwagger\Analyzer\TypeInfoExtractor;
 
@@ -248,7 +249,7 @@ class TypeInfoExtractorTest extends TestCase
         $this->replaceInternalExtractor(null);
     }
 
-    private function replaceInternalExtractor(?\Symfony\Component\PropertyInfo\PropertyInfoExtractor $extractor): void
+    private function replaceInternalExtractor(?PropertyInfoExtractorInterface $extractor): void
     {
         $property = new \ReflectionProperty(TypeInfoExtractor::class, 'extractor');
         $property->setValue($this->extractor, $extractor);
@@ -299,14 +300,24 @@ class AuthorDtoTypeInfo
     public string $email;
 }
 
-class ThrowingPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+class ThrowingPropertyInfoExtractor implements PropertyInfoExtractorInterface
 {
-    public function __construct()
+    public function getTypes(string $class, string $property, array $context = []): ?array
     {
-        parent::__construct();
+        throw new \RuntimeException('boom');
     }
 
-    public function getTypes(string $class, string $property, array $context = []): ?array
+    public function getProperties(string $class, array $context = []): ?array
+    {
+        throw new \RuntimeException('boom');
+    }
+
+    public function getShortDescription(string $class, string $property, array $context = []): ?string
+    {
+        throw new \RuntimeException('boom');
+    }
+
+    public function getLongDescription(string $class, string $property, array $context = []): ?string
     {
         throw new \RuntimeException('boom');
     }
@@ -315,31 +326,66 @@ class ThrowingPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\Prop
     {
         throw new \RuntimeException('boom');
     }
+
+    public function isWritable(string $class, string $property, array $context = []): ?bool
+    {
+        throw new \RuntimeException('boom');
+    }
 }
 
-class NullTypesPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+class NullTypesPropertyInfoExtractor implements PropertyInfoExtractorInterface
 {
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
     public function getTypes(string $class, string $property, array $context = []): ?array
     {
         return null;
+    }
+
+    public function getProperties(string $class, array $context = []): ?array
+    {
+        return [];
     }
 
     public function getShortDescription(string $class, string $property, array $context = []): ?string
     {
         return 'Synthetic description';
     }
+
+    public function getLongDescription(string $class, string $property, array $context = []): ?string
+    {
+        return null;
+    }
+
+    public function isReadable(string $class, string $property, array $context = []): ?bool
+    {
+        return true;
+    }
+
+    public function isWritable(string $class, string $property, array $context = []): ?bool
+    {
+        return true;
+    }
 }
 
-class NullAccessPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+class NullAccessPropertyInfoExtractor implements PropertyInfoExtractorInterface
 {
-    public function __construct()
+    public function getTypes(string $class, string $property, array $context = []): ?array
     {
-        parent::__construct();
+        return [];
+    }
+
+    public function getProperties(string $class, array $context = []): ?array
+    {
+        return [];
+    }
+
+    public function getShortDescription(string $class, string $property, array $context = []): ?string
+    {
+        return null;
+    }
+
+    public function getLongDescription(string $class, string $property, array $context = []): ?string
+    {
+        return null;
     }
 
     public function isReadable(string $class, string $property, array $context = []): ?bool
