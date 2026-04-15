@@ -121,6 +121,16 @@ class SchemaDescriberTest extends TestCase
         $this->assertCount(1, $this->schemaRegistry->getSchemas());
     }
 
+    public function testDescribeReturnsRefWhenClassIsAlreadyBeingAnalyzed(): void
+    {
+        $class = new \ReflectionClass(SimpleTestDto::class);
+        $this->schemaRegistry->markAnalyzing(SimpleTestDto::class);
+
+        $result = $this->describer->describe($class);
+
+        $this->assertSame('#/components/schemas/SimpleTestDto', $result['$ref']);
+    }
+
     public function testDescribePropertiesSkipsStaticFields(): void
     {
         $resolver = \Closure::bind(
@@ -164,6 +174,108 @@ class SchemaDescriberTest extends TestCase
 
         $this->assertSame([], $this->schemaRegistry->getSchemas());
     }
+
+    public function testRegisterNestedSchemasForPropertyHandlesUnionDtoTypes(): void
+    {
+        $resolver = \Closure::bind(
+            function (\ReflectionProperty $property): void {
+                $this->registerNestedSchemasForProperty($property, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver(new \ReflectionProperty(UnionNestedParentDto::class, 'child'));
+
+        $schemas = $this->schemaRegistry->getSchemas();
+        $this->assertArrayHasKey('NestedChildDto', $schemas);
+        $this->assertArrayHasKey('AlternateNestedChildDto', $schemas);
+    }
+
+    public function testRegisterNestedSchemaForTypeStringRegistersDirectClassName(): void
+    {
+        $resolver = \Closure::bind(
+            function (string $typeString, ?string $namespace): void {
+                $this->registerNestedSchemaForTypeString($typeString, $namespace, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver(NestedChildDto::class, null);
+
+        $this->assertArrayHasKey('NestedChildDto', $this->schemaRegistry->getSchemas());
+    }
+
+    public function testRegisterNestedSchemaForTypeStringSkipsUnknownClassWithoutNamespace(): void
+    {
+        $resolver = \Closure::bind(
+            function (string $typeString, ?string $namespace): void {
+                $this->registerNestedSchemaForTypeString($typeString, $namespace, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver('MissingDto', null);
+
+        $this->assertSame([], $this->schemaRegistry->getSchemas());
+    }
+
+    public function testRegisterNestedSchemaForTypeStringResolvesRelativeNamespaceClassName(): void
+    {
+        $resolver = \Closure::bind(
+            function (string $typeString, ?string $namespace): void {
+                $this->registerNestedSchemaForTypeString($typeString, $namespace, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver('NestedChildDto', __NAMESPACE__);
+
+        $this->assertArrayHasKey('NestedChildDto', $this->schemaRegistry->getSchemas());
+    }
+
+    public function testRegisterNestedSchemasForPropertySkipsArrayWithoutDocBlockType(): void
+    {
+        $resolver = \Closure::bind(
+            function (\ReflectionProperty $property): void {
+                $this->registerNestedSchemasForProperty($property, 0);
+            },
+            $this->describer,
+            SchemaDescriber::class,
+        );
+
+        $resolver(new \ReflectionProperty(UndocumentedArrayDto::class, 'items'));
+
+        $this->assertSame([], $this->schemaRegistry->getSchemas());
+    }
+
+    public function testSchemaIncludesClassAndPropertyDescriptionsFromPhpDoc(): void
+    {
+        $class = new \ReflectionClass(DescribedDto::class);
+
+        $this->describer->describe($class);
+
+        $schema = $this->schemaRegistry->getSchemas()['DescribedDto'];
+
+        $this->assertSame("DTO summary.\n\nDTO details.", $schema['description']);
+        $this->assertSame('Display name.', $schema['properties']['name']['description']);
+        $this->assertSame('Tag labels', $schema['properties']['tags']['description']);
+    }
+
+    public function testDescribeWithoutDescriptionOrRequiredKeepsSchemaMinimal(): void
+    {
+        $class = new \ReflectionClass(AllOptionalDto::class);
+
+        $this->describer->describe($class);
+
+        $schema = $this->schemaRegistry->getSchemas()['AllOptionalDto'];
+
+        $this->assertArrayNotHasKey('description', $schema);
+        $this->assertArrayNotHasKey('required', $schema);
+    }
 }
 
 // Test DTO class
@@ -198,4 +310,41 @@ class NestedArrayParentDto
 class NestedChildDto
 {
     public string $name;
+}
+
+class AlternateNestedChildDto
+{
+    public string $title;
+}
+
+class UnionNestedParentDto
+{
+    public NestedChildDto|AlternateNestedChildDto $child;
+}
+
+class UndocumentedArrayDto
+{
+    public array $items;
+}
+
+/**
+ * DTO summary.
+ *
+ * DTO details.
+ */
+class DescribedDto
+{
+    /**
+     * Display name.
+     */
+    public string $name;
+
+    /** @var string[] Tag labels */
+    public array $tags;
+}
+
+class AllOptionalDto
+{
+    public ?string $optional = null;
+    public int $withDefault = 1;
 }

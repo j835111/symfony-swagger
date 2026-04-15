@@ -298,6 +298,61 @@ class DoctrineAttributeExtractorTest extends TestCase
         $this->assertTrue($result['isCollection']);
         $this->assertSame('AuthorDtoDoctrine', $result['targetEntity']);
     }
+
+    public function testMapBuiltinTypeHandlesDouble(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type): string => $this->mapBuiltinType($type),
+            $this->extractor,
+            DoctrineAttributeExtractor::class,
+        );
+
+        $this->assertSame('number', $resolver('double'));
+    }
+
+    public function testMapBuiltinTypeReturnsOriginalValueForString(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type): string => $this->mapBuiltinType($type),
+            $this->extractor,
+            DoctrineAttributeExtractor::class,
+        );
+
+        $this->assertSame('string', $resolver('string'));
+    }
+
+    public function testResolveClassNameReturnsInputWhenNamespaceIsNull(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className, ?string $namespace): string => $this->resolveClassName($className, $namespace),
+            $this->extractor,
+            DoctrineAttributeExtractor::class,
+        );
+
+        $this->assertSame('PlainDto', $resolver('PlainDto', null));
+    }
+
+    public function testResolveClassNameStripsLeadingNamespaceSeparator(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className, ?string $namespace): string => $this->resolveClassName($className, $namespace),
+            $this->extractor,
+            DoctrineAttributeExtractor::class,
+        );
+
+        $this->assertSame('App\\Dto\\UserDto', $resolver('\\App\\Dto\\UserDto', 'Ignored'));
+    }
+
+    public function testResolveClassNameReturnsFullyQualifiedInputWhenAlreadyNamespaced(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className, ?string $namespace): string => $this->resolveClassName($className, $namespace),
+            $this->extractor,
+            DoctrineAttributeExtractor::class,
+        );
+
+        $this->assertSame('App\\Dto\\UserDto', $resolver('App\\Dto\\UserDto', 'Ignored'));
+    }
 }
 
 // Test DTOs for Doctrine attributes

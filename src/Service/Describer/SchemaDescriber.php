@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymfonySwagger\Service\Describer;
 
+use SymfonySwagger\Analyzer\DocBlockDescriptionExtractor;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 use SymfonySwagger\Service\Registry\SchemaRegistry;
 
@@ -52,6 +53,11 @@ class SchemaDescriber
             'type' => 'object',
             'properties' => $properties,
         ];
+
+        $description = DocBlockDescriptionExtractor::getSchemaDescription($class);
+        if (null !== $description) {
+            $schema['description'] = $description;
+        }
 
         if (!empty($required)) {
             $schema['required'] = $required;

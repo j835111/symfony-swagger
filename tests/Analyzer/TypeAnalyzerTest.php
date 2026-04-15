@@ -185,6 +185,15 @@ class TypeAnalyzerTest extends TestCase
         $this->assertArrayHasKey('description', $schema);
     }
 
+    public function testAnalyzeReturnsUnknownTypeForUnhandledReflectionType(): void
+    {
+        $reflection = new \ReflectionProperty(IntersectionTypeDto::class, 'iterableAggregate');
+        $schema = $this->analyzer->analyze($reflection->getType());
+
+        $this->assertSame('string', $schema['type']);
+        $this->assertSame('Unknown type', $schema['description']);
+    }
+
     public function testAnalyzeIterableType(): void
     {
         $reflection = new \ReflectionProperty(IterableTestDto::class, 'data');
@@ -284,6 +293,19 @@ class TypeAnalyzerTest extends TestCase
         $this->assertStringContainsString('DoctrineBackedItemDto', $schema['items']['items']['$ref']);
     }
 
+    public function testAnalyzePropertyUsesTypeInfoExtractorCollectionFallbackAndDescription(): void
+    {
+        $typeInfoExtractorProperty = new \ReflectionProperty(TypeAnalyzer::class, 'typeInfoExtractor');
+        $typeInfoExtractorProperty->setValue($this->analyzer, new PropertyInfoBackedTypeInfoExtractor());
+
+        $reflection = new \ReflectionProperty(PropertyInfoBackedArrayDto::class, 'items');
+        $schema = $this->analyzer->analyzeProperty($reflection);
+
+        $this->assertSame('array', $schema['type']);
+        $this->assertSame(['type' => 'string'], $schema['items']);
+        $this->assertSame('Resolved from PropertyInfo', $schema['description']);
+    }
+
     public function testAnalyzePropertyThrowsWhenArrayItemsCannotBeDetermined(): void
     {
         $this->expectException(\LogicException::class);
@@ -349,6 +371,19 @@ class TypeAnalyzerTest extends TestCase
         $this->assertStringContainsString('NamespaceResolvedChildDto', $schema['$ref']);
     }
 
+    public function testAnalyzeTypeStringResolvesFullyQualifiedClassName(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->analyzeTypeString($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $schema = $resolver(AuthorDto::class, [], null);
+
+        $this->assertStringContainsString('AuthorDto', $schema['$ref']);
+    }
+
     public function testAnalyzeTypeStringFallsBackToStringForUnknownType(): void
     {
         $resolver = \Closure::bind(
@@ -358,6 +393,51 @@ class TypeAnalyzerTest extends TestCase
         );
 
         $schema = $resolver('DefinitelyMissingType', [], __NAMESPACE__);
+
+        $this->assertSame(['type' => 'string'], $schema);
+    }
+
+    public function testAnalyzeTypeStringCoversBuiltinMappings(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->analyzeTypeString($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $this->assertSame(['type' => 'number'], $resolver('float', [], null));
+        $this->assertSame(['type' => 'boolean'], $resolver('bool', [], null));
+        $this->assertSame(['type' => 'array'], $resolver('array', [], null));
+        $this->assertSame(['type' => 'object'], $resolver('object', [], null));
+        $this->assertSame(['description' => 'Mixed type'], $resolver('mixed', [], null));
+        $this->assertSame(['type' => 'string', 'nullable' => true], $resolver('null', [], null));
+        $this->assertSame(['type' => 'string', 'description' => 'Resource'], $resolver('resource', [], null));
+    }
+
+    public function testAnalyzeTypeStringCoversRemainingBuiltinAliases(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->analyzeTypeString($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $this->assertSame(['type' => 'string'], $resolver('string', [], null));
+        $this->assertSame(['type' => 'integer'], $resolver('int', [], null));
+        $this->assertSame(['type' => 'integer'], $resolver('integer', [], null));
+        $this->assertSame(['type' => 'number'], $resolver('double', [], null));
+        $this->assertSame(['type' => 'boolean'], $resolver('boolean', [], null));
+    }
+
+    public function testResolveClassAndAnalyzeFallsBackToStringWithoutNamespace(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $type, array $context, ?string $namespace): array => $this->resolveClassAndAnalyze($type, $context, $namespace),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $schema = $resolver('DefinitelyMissingType', [], null);
 
         $this->assertSame(['type' => 'string'], $schema);
     }
@@ -379,6 +459,25 @@ class TypeAnalyzerTest extends TestCase
         $schema = $this->analyzer->analyze($reflection, depth: 0, context: $context);
 
         $this->assertArrayHasKey('$ref', $schema);
+    }
+
+    public function testExtractPropertyDescriptionReturnsNullWhenExtractorUnavailableAndNoDocBlock(): void
+    {
+        $typeInfoExtractorProperty = new \ReflectionProperty(TypeAnalyzer::class, 'typeInfoExtractor');
+        $typeInfoExtractor = $typeInfoExtractorProperty->getValue($this->analyzer);
+
+        $extractorProperty = new \ReflectionProperty($typeInfoExtractor, 'extractor');
+        $extractorProperty->setValue($typeInfoExtractor, null);
+
+        $resolver = \Closure::bind(
+            fn (\ReflectionProperty $property): ?string => $this->extractPropertyDescription($property),
+            $this->analyzer,
+            TypeAnalyzer::class,
+        );
+
+        $description = $resolver(new \ReflectionProperty(TestDto::class, 'name'));
+
+        $this->assertNull($description);
     }
 }
 
@@ -442,6 +541,11 @@ class DoctrineBackedItemDto
     public string $name;
 }
 
+class PropertyInfoBackedArrayDto
+{
+    public array $items;
+}
+
 class MissingArrayTypeDto
 {
     public array $items;
@@ -480,10 +584,35 @@ class NullableOnlyDto
     public ?string $name;
 }
 
+class IntersectionTypeDto
+{
+    public \Countable&\IteratorAggregate $iterableAggregate;
+}
+
 class AuthorDto
 {
     public string $name;
     public string $email;
+}
+
+class PropertyInfoBackedTypeInfoExtractor extends \SymfonySwagger\Analyzer\TypeInfoExtractor
+{
+    public function __construct()
+    {
+    }
+
+    public function isAvailable(): bool
+    {
+        return true;
+    }
+
+    public function getPropertyInfo(string $class, string $property, ?array $serializerGroups = null): array
+    {
+        return [
+            'types' => [new Type('array', false, null, true, [new Type('int')], [new Type('string')])],
+            'description' => 'Resolved from PropertyInfo',
+        ];
+    }
 }
 
 enum UserRole: string

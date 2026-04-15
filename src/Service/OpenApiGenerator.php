@@ -8,6 +8,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use SymfonySwagger\Analyzer\DocBlockDescriptionExtractor;
 use SymfonySwagger\Service\Describer\OperationDescriber;
 use SymfonySwagger\Service\Describer\RouteDescriber;
 use SymfonySwagger\Service\Registry\SchemaRegistry;
@@ -73,12 +74,19 @@ class OpenApiGenerator
         // 清空 Schema Registry
         $this->schemaRegistry->clear();
 
+        $routes = $this->routeDescriber->describe($this->router, $this->config);
+        ['paths' => $paths, 'tags' => $tags] = $this->generatePathsAndTags($routes);
+
         $doc = [
             'openapi' => '3.1.0',
             'info' => $this->generateInfo(),
             'servers' => $this->generateServers(),
-            'paths' => $this->generatePaths(),
+            'paths' => $paths,
         ];
+
+        if (!empty($tags)) {
+            $doc['tags'] = $tags;
+        }
 
         // 加入 components/schemas
         $schemas = $this->schemaRegistry->getSchemas();
@@ -119,16 +127,16 @@ class OpenApiGenerator
     }
 
     /**
-     * 生成 paths 區塊.
+     * 生成 paths 與根層 tags 區塊.
      *
-     * @return array<string, mixed>
+     * @param array<string, array<string, mixed>> $routes
+     *
+     * @return array{paths: array<string, mixed>, tags: list<array<string, string>>}
      */
-    private function generatePaths(): array
+    private function generatePathsAndTags(array $routes): array
     {
         $paths = [];
-
-        // 取得所有路由
-        $routes = $this->routeDescriber->describe($this->router, $this->config);
+        $tags = [];
 
         foreach ($routes as $routeName => $routeInfo) {
             $route = $routeInfo['route'];
@@ -149,6 +157,8 @@ class OpenApiGenerator
                 try {
                     $operation = $this->operationDescriber->describe($reflection, $route);
                     $paths[$path][$httpMethod] = $operation;
+                    $tag = $this->generateTagDefinition($reflection->getDeclaringClass());
+                    $tags[$tag['name']] = $tag;
                 } catch (\Throwable $e) {
                     $this->logger?->warning('Failed to describe route "{route}" ({method} {path}): {error}', [
                         'route' => $routeName,
@@ -162,7 +172,26 @@ class OpenApiGenerator
             }
         }
 
-        return $paths;
+        return [
+            'paths' => $paths,
+            'tags' => array_values($tags),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function generateTagDefinition(\ReflectionClass $controllerClass): array
+    {
+        $name = str_replace('Controller', '', $controllerClass->getShortName());
+        $tag = ['name' => $name];
+
+        $description = DocBlockDescriptionExtractor::getSchemaDescription($controllerClass);
+        if (null !== $description) {
+            $tag['description'] = $description;
+        }
+
+        return $tag;
     }
 
     /**

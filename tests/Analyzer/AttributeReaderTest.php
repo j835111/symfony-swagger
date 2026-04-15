@@ -92,6 +92,29 @@ class AttributeReaderTest extends TestCase
         $this->assertIsArray($attributes);
     }
 
+    public function testReadSecurityAttributesWhenIsGrantedClassExists(): void
+    {
+        if (!class_exists(\Symfony\Component\Security\Http\Attribute\IsGranted::class)) {
+            eval(<<<'PHP'
+namespace Symfony\Component\Security\Http\Attribute;
+#[\Attribute(\Attribute::TARGET_METHOD | \Attribute::IS_REPEATABLE)]
+class IsGranted
+{
+    public function __construct(
+        public ?string $attribute = null,
+    ) {
+    }
+}
+PHP);
+        }
+
+        $reflection = new \ReflectionMethod(TestController::class, 'securedAction');
+        $attributes = $this->reader->readSecurityAttributes($reflection);
+
+        $this->assertCount(1, $attributes);
+        $this->assertSame('ROLE_ADMIN', $attributes[0]->attribute);
+    }
+
     public function testReadApiResponseAttribute(): void
     {
         $reflection = new \ReflectionMethod(TestController::class, 'apiResponseAction');
@@ -139,6 +162,11 @@ class TestController
 
     #[Route('/protected', methods: ['GET'])]
     public function protectedAction(): void
+    {
+    }
+
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_ADMIN')]
+    public function securedAction(): void
     {
     }
 

@@ -303,7 +303,32 @@ class TypeAnalyzer
             }
         }
 
+        $description = $this->extractPropertyDescription($property);
+        if (null !== $description) {
+            $schema['description'] = $description;
+        }
+
         return $schema;
+    }
+
+    private function extractPropertyDescription(\ReflectionProperty $property): ?string
+    {
+        $description = DocBlockDescriptionExtractor::getSchemaDescription($property);
+        if (null !== $description) {
+            return $description;
+        }
+
+        if (!$this->typeInfoExtractor->isAvailable()) {
+            return null;
+        }
+
+        $propertyInfo = $this->typeInfoExtractor->getPropertyInfo(
+            $property->getDeclaringClass()->getName(),
+            $property->getName(),
+            $this->serializerGroups,
+        );
+
+        return $propertyInfo['description'];
     }
 
     /**

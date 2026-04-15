@@ -7,6 +7,7 @@ namespace SymfonySwagger\Service\Describer;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Route;
 use SymfonySwagger\Analyzer\AttributeReader;
+use SymfonySwagger\Analyzer\DocBlockDescriptionExtractor;
 use SymfonySwagger\Analyzer\TypeAnalyzer;
 
 /**
@@ -35,6 +36,11 @@ class OperationDescriber
             'operationId' => $this->generateOperationId($method),
             'tags' => $this->generateTags($method),
         ];
+
+        $description = $this->generateDescription($method);
+        if (null !== $description) {
+            $operation['description'] = $description;
+        }
 
         // Parameters (path, query)
         $parameters = $this->describeParameters($method, $route);
@@ -67,24 +73,28 @@ class OperationDescriber
         $path = $route->getPath();
         preg_match_all('/\{(\w+)\}/', $path, $matches);
         foreach ($matches[1] as $paramName) {
-            $parameters[] = [
+            $parameter = [
                 'name' => $paramName,
                 'in' => 'path',
                 'required' => true,
                 'schema' => $this->describePathParameterSchema($method, $route, $paramName),
             ];
+            $this->applyParameterDescription($parameter, DocBlockDescriptionExtractor::getParameterDescription($method, $paramName));
+            $parameters[] = $parameter;
         }
 
         // Query parameters from #[MapQueryParameter]
         $queryParams = $this->attributeReader->getParametersFromAttributes($method);
         foreach ($queryParams as $param) {
             $schema = $this->typeAnalyzer->analyze($param['type']);
-            $parameters[] = [
+            $parameter = [
                 'name' => $param['name'],
                 'in' => 'query',
                 'required' => null !== $param['type'] && !$param['type']->allowsNull(),
                 'schema' => $schema,
             ];
+            $this->applyParameterDescription($parameter, DocBlockDescriptionExtractor::getParameterDescription($method, $param['name']));
+            $parameters[] = $parameter;
         }
 
         // Query parameters from #[MapQueryString]
@@ -139,15 +149,21 @@ class OperationDescriber
                     'explode' => true,
                     'schema' => $schema,
                 ];
+                $lastIndex = array_key_last($parameters);
+                if (null !== $lastIndex) {
+                    $this->applyParameterDescription($parameters[$lastIndex], DocBlockDescriptionExtractor::getParameterDescription($method, $parameter->getName()));
+                }
             } else {
                 foreach ($properties as $name => $schema) {
                     $isRequired = !$paramIsOptional && \in_array($name, $required, true);
-                    $parameters[] = [
+                    $parameterDefinition = [
                         'name' => $name,
                         'in' => 'query',
                         'required' => $isRequired,
                         'schema' => $schema,
                     ];
+                    $this->applyParameterDescription($parameterDefinition, $schema['description'] ?? null);
+                    $parameters[] = $parameterDefinition;
                 }
             }
         }
@@ -190,8 +206,6 @@ class OperationDescriber
 
         // Check for #[MapRequestPayload]
         if (isset($requestAttributes['requestPayload'])) {
-            $payload = $requestAttributes['requestPayload'];
-
             // 找到對應的參數
             foreach ($method->getParameters() as $parameter) {
                 $attrs = $parameter->getAttributes(MapRequestPayload::class);
@@ -204,7 +218,7 @@ class OperationDescriber
                         $reflectionClass = new \ReflectionClass($className);
                         $schema = $this->schemaDescriber->describe($reflectionClass);
 
-                        return [
+                        $requestBody = [
                             'required' => !$type->allowsNull(),
                             'content' => [
                                 'application/json' => [
@@ -212,6 +226,9 @@ class OperationDescriber
                                 ],
                             ],
                         ];
+                        $this->applyDescription($requestBody, DocBlockDescriptionExtractor::getParameterDescription($method, $parameter->getName()));
+
+                        return $requestBody;
                     }
 
                     // 情況 2: 參數型別為 array，透過 #[MapRequestPayload(type: Dto::class)] 指定 DTO
@@ -223,7 +240,7 @@ class OperationDescriber
                             $reflectionClass = new \ReflectionClass($dtoClass);
                             $itemSchema = $this->schemaDescriber->describe($reflectionClass);
 
-                            return [
+                            $requestBody = [
                                 'required' => !$type->allowsNull(),
                                 'content' => [
                                     'application/json' => [
@@ -234,6 +251,9 @@ class OperationDescriber
                                     ],
                                 ],
                             ];
+                            $this->applyDescription($requestBody, DocBlockDescriptionExtractor::getParameterDescription($method, $parameter->getName()));
+
+                            return $requestBody;
                         }
                     }
                 }
@@ -243,7 +263,7 @@ class OperationDescriber
         // Check for #[MapUploadedFile]
         $uploadedFiles = $this->attributeReader->getUploadedFileParametersFromAttributes($method);
         if (!empty($uploadedFiles)) {
-            return $this->buildMultipartRequestBody($uploadedFiles);
+            return $this->buildMultipartRequestBody($method, $uploadedFiles);
         }
 
         return null;
@@ -321,7 +341,7 @@ class OperationDescriber
      *
      * @return array<string, mixed>
      */
-    private function buildMultipartRequestBody(array $uploadedFiles): array
+    private function buildMultipartRequestBody(\ReflectionMethod $method, array $uploadedFiles): array
     {
         $properties = [];
         $required = [];
@@ -344,6 +364,11 @@ class OperationDescriber
             $schema = $isArray
                 ? ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'binary']]
                 : ['type' => 'string', 'format' => 'binary'];
+
+            $description = DocBlockDescriptionExtractor::getParameterDescription($method, $parameter->getName());
+            if (null !== $description) {
+                $schema['description'] = $description;
+            }
 
             $properties[$fieldName] = $schema;
 
@@ -435,16 +460,20 @@ class OperationDescriber
      */
     private function generateSummary(\ReflectionMethod $method): string
     {
-        // 從 DocBlock 提取或使用方法名稱
-        $docComment = $method->getDocComment();
-        if (false !== $docComment && preg_match('/@summary\s+(.+)/', $docComment, $matches)) {
-            return trim($matches[1]);
+        $summary = DocBlockDescriptionExtractor::getSummary($method);
+        if (null !== $summary) {
+            return $summary;
         }
 
         // 從方法名稱生成
         $methodName = $method->getName();
 
         return ucfirst(preg_replace('/([a-z])([A-Z])/', '$1 $2', $methodName));
+    }
+
+    private function generateDescription(\ReflectionMethod $method): ?string
+    {
+        return DocBlockDescriptionExtractor::getOperationDescription($method);
     }
 
     /**
@@ -470,5 +499,25 @@ class OperationDescriber
         $tag = str_replace('Controller', '', $className);
 
         return [$tag];
+    }
+
+    /**
+     * @param array<string, mixed> $parameter
+     */
+    private function applyParameterDescription(array &$parameter, ?string $description): void
+    {
+        $this->applyDescription($parameter, $description);
+    }
+
+    /**
+     * @param array<string, mixed> $target
+     */
+    private function applyDescription(array &$target, ?string $description): void
+    {
+        if (null === $description || '' === trim($description)) {
+            return;
+        }
+
+        $target['description'] = $description;
     }
 }

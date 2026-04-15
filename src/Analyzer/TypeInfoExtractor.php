@@ -41,6 +41,7 @@ class TypeInfoExtractor
             $this->extractor = new PropertyInfoExtractor(
                 listExtractors: [$reflectionExtractor],
                 typeExtractors: [$phpDocExtractor, $reflectionExtractor, $constructorExtractor],
+                descriptionExtractors: [$phpDocExtractor],
                 accessExtractors: [$reflectionExtractor],
             );
         } catch (\Throwable) {

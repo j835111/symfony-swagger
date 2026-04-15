@@ -182,6 +182,28 @@ class RouteDescriberTest extends TestCase
         $this->assertSame('testDescribeWithArrayControllerFormat', $result['app_users']['method']);
     }
 
+    public function testDescribeWithArrayControllerObjectInstance(): void
+    {
+        $router = $this->createMock(RouterInterface::class);
+
+        $controller = new class () {
+            public function handle(): void
+            {
+            }
+        };
+
+        $routes = new RouteCollection();
+        $routes->add('app_users', new Route('/api/users', ['_controller' => [$controller, 'handle']]));
+
+        $router->method('getRouteCollection')->willReturn($routes);
+
+        $result = $this->describer->describe($router);
+
+        $this->assertArrayHasKey('app_users', $result);
+        $this->assertSame($controller::class, $result['app_users']['controller']);
+        $this->assertSame('handle', $result['app_users']['method']);
+    }
+
     public function testDescribeWithCallableController(): void
     {
         $router = $this->createMock(RouterInterface::class);
@@ -219,11 +241,32 @@ class RouteDescriberTest extends TestCase
         $this->assertSame(InvokableRouteController::class, $result['app_invokable_class']['controller']);
         $this->assertSame('__invoke', $result['app_invokable_class']['method']);
     }
+
+    public function testDescribeSkipsNonInvokableControllerClassString(): void
+    {
+        $router = $this->createMock(RouterInterface::class);
+
+        $routes = new RouteCollection();
+        $routes->add('app_non_invokable_class', new Route('/api/non-invokable', ['_controller' => NonInvokableRouteController::class]));
+
+        $router->method('getRouteCollection')->willReturn($routes);
+
+        $result = $this->describer->describe($router);
+
+        $this->assertSame([], $result);
+    }
 }
 
 class InvokableRouteController
 {
     public function __invoke(): void
+    {
+    }
+}
+
+class NonInvokableRouteController
+{
+    public function handle(): void
     {
     }
 }

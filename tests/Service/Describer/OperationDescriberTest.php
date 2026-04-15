@@ -242,7 +242,18 @@ class OperationDescriberTest extends TestCase
 
         $result = $this->describer->describe($method, $route);
 
-        $this->assertArrayHasKey('summary', $result);
+        $this->assertSame('Get all users', $result['summary']);
+    }
+
+    public function testGenerateDescriptionWithPhpDocBody(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithDoc::class, 'detail');
+        $route = new Route('/api/test/detail');
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertSame('List users.', $result['summary']);
+        $this->assertSame('Returns all active users.', $result['description']);
     }
 
     public function testRequestBodyWithDtoClass(): void
@@ -269,6 +280,7 @@ class OperationDescriberTest extends TestCase
         $this->assertArrayHasKey('requestBody', $result);
         $schema = $result['requestBody']['content']['application/json']['schema'];
         $this->assertSame('#/components/schemas/TestDtoForDescriber', $schema['$ref']);
+        $this->assertSame('User payload', $result['requestBody']['description']);
     }
 
     public function testDescribeWithMapRequestPayloadArrayType(): void
@@ -340,6 +352,8 @@ class OperationDescriberTest extends TestCase
         $this->assertArrayHasKey('page', $byName);
         $this->assertTrue($byName['keyword']['required']);
         $this->assertFalse($byName['page']['required']);
+        $this->assertSame('Search keyword.', $byName['keyword']['description']);
+        $this->assertSame('Page number.', $byName['page']['description']);
     }
 
     public function testDescribeWithMapQueryStringKeyUsesDeepObject(): void
@@ -359,6 +373,7 @@ class OperationDescriberTest extends TestCase
         $this->assertSame('deepObject', $param['style']);
         $this->assertTrue($param['explode']);
         $this->assertSame('object', $param['schema']['type']);
+        $this->assertSame('Filters applied as deep object', $param['description']);
     }
 
     public function testDescribeWithMapUploadedFileSingle(): void
@@ -377,6 +392,7 @@ class OperationDescriberTest extends TestCase
         $this->assertArrayHasKey('file', $content['properties']);
         $this->assertSame('string', $content['properties']['file']['type']);
         $this->assertSame('binary', $content['properties']['file']['format']);
+        $this->assertSame('Avatar image', $content['properties']['file']['description']);
     }
 
     public function testDescribeWithMapUploadedFileArray(): void
@@ -462,6 +478,17 @@ class OperationDescriberTest extends TestCase
         $this->assertSame(['type' => 'string'], $schema);
     }
 
+    public function testPathParameterDescriptionFromPhpDoc(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithPathParameters::class, 'show');
+        $route = new Route('/api/users/{id}');
+
+        $result = $this->describer->describe($method, $route);
+
+        $pathParams = array_values(array_filter($result['parameters'] ?? [], fn ($p) => 'path' === $p['in']));
+        $this->assertSame('User identifier', $pathParams[0]['description']);
+    }
+
     public function testBuildFileResponseIncludesDownloadHeaders(): void
     {
         $resolver = \Closure::bind(
@@ -508,11 +535,28 @@ class TestControllerWithDoc
     {
         return [];
     }
+
+    /**
+     * List users.
+     *
+     * Returns all active users.
+     */
+    public function detail(): array
+    {
+        return [];
+    }
 }
 
 class TestDtoForDescriber
 {
+    /**
+     * Display name.
+     */
     public string $name;
+
+    /**
+     * Email address.
+     */
     public ?string $email = null;
 }
 
@@ -526,7 +570,14 @@ class TestControllerWithDto
 
 class QueryFilterDto
 {
+    /**
+     * Search keyword.
+     */
     public string $keyword;
+
+    /**
+     * Page number.
+     */
     public ?int $page = null;
 }
 
@@ -537,6 +588,9 @@ class TestControllerWithQueryString
         return [];
     }
 
+    /**
+     * @param QueryFilterDto $filter Filters applied as deep object
+     */
     public function search(#[MapQueryString(key: 'filter')] QueryFilterDto $filter): array
     {
         return [];
@@ -545,6 +599,9 @@ class TestControllerWithQueryString
 
 class TestControllerWithRequestPayload
 {
+    /**
+     * @param TestDtoForDescriber $dto User payload
+     */
     public function create(#[MapRequestPayload] TestDtoForDescriber $dto): array
     {
         return [];
@@ -568,6 +625,9 @@ class TestControllerWithRequestPayload
 
 class TestControllerWithUploads
 {
+    /**
+     * @param UploadedFile $file Avatar image
+     */
     public function upload(#[MapUploadedFile(name: 'file')] UploadedFile $file): array
     {
         return [];
@@ -586,6 +646,9 @@ class TestControllerWithUploads
 
 class TestControllerWithPathParameters
 {
+    /**
+     * @param int $id User identifier
+     */
     public function show(int $id): array
     {
         return [];

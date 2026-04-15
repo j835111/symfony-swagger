@@ -35,6 +35,7 @@ class TypeInfoExtractorTest extends TestCase
         $result = $this->extractor->getPropertyInfo(TIETestDto::class, 'items');
 
         $this->assertArrayHasKey('types', $result);
+        $this->assertSame('Item labels', $result['description']);
         $types = $result['types'];
         $this->assertNotEmpty($types);
     }
@@ -96,11 +97,10 @@ class TypeInfoExtractorTest extends TestCase
 
     public function testConvertTypeToSchemaMixed(): void
     {
-        // Test with 'object' type that isn't a known class - should return object schema
-        $type = new Type('object');
+        $type = $this->createSyntheticType('mixed');
         $schema = $this->extractor->convertTypeToSchema($type);
 
-        $this->assertSame(['type' => 'object'], $schema);
+        $this->assertSame(['description' => 'Mixed type'], $schema);
     }
 
     public function testConvertTypeToSchemaNull(): void
@@ -188,6 +188,16 @@ class TypeInfoExtractorTest extends TestCase
         $this->assertNull($result['description']);
     }
 
+    public function testGetPropertyInfoReturnsFallbackWhenExtractorThrows(): void
+    {
+        $this->replaceInternalExtractor(new ThrowingPropertyInfoExtractor());
+
+        $result = $this->extractor->getPropertyInfo(TIETestDto::class, 'name');
+
+        $this->assertSame([], $result['types']);
+        $this->assertNull($result['description']);
+    }
+
     public function testGetPropertyAccessReturnsFallbackWhenExtractorUnavailable(): void
     {
         $this->disableInternalExtractor();
@@ -197,10 +207,72 @@ class TypeInfoExtractorTest extends TestCase
         $this->assertSame(['readable' => true, 'writable' => true], $access);
     }
 
+    public function testGetPropertyAccessReturnsFallbackWhenExtractorThrows(): void
+    {
+        $this->replaceInternalExtractor(new ThrowingPropertyInfoExtractor());
+
+        $access = $this->extractor->getPropertyAccess(TIETestDto::class, 'name');
+
+        $this->assertSame(['readable' => true, 'writable' => true], $access);
+    }
+
+    public function testGetPropertyInfoReturnsEmptyTypesWhenExtractorReturnsNullTypes(): void
+    {
+        $this->replaceInternalExtractor(new NullTypesPropertyInfoExtractor());
+
+        $result = $this->extractor->getPropertyInfo(TIETestDto::class, 'name');
+
+        $this->assertSame([], $result['types']);
+        $this->assertSame('Synthetic description', $result['description']);
+    }
+
+    public function testGetPropertyAccessFallsBackWhenExtractorReturnsNullFlags(): void
+    {
+        $this->replaceInternalExtractor(new NullAccessPropertyInfoExtractor());
+
+        $access = $this->extractor->getPropertyAccess(TIETestDto::class, 'name');
+
+        $this->assertSame(['readable' => true, 'writable' => true], $access);
+    }
+
+    public function testConvertTypeToSchemaFallsBackToStringForUnknownBuiltinType(): void
+    {
+        $type = $this->createSyntheticType('custom');
+        $schema = $this->extractor->convertTypeToSchema($type);
+
+        $this->assertSame(['type' => 'string'], $schema);
+    }
+
     private function disableInternalExtractor(): void
     {
+        $this->replaceInternalExtractor(null);
+    }
+
+    private function replaceInternalExtractor(?\Symfony\Component\PropertyInfo\PropertyInfoExtractor $extractor): void
+    {
         $property = new \ReflectionProperty(TypeInfoExtractor::class, 'extractor');
-        $property->setValue($this->extractor, null);
+        $property->setValue($this->extractor, $extractor);
+    }
+
+    private function createSyntheticType(string $builtinType): Type
+    {
+        $reflection = new \ReflectionClass(Type::class);
+        /** @var Type $type */
+        $type = $reflection->newInstanceWithoutConstructor();
+
+        foreach ([
+            'builtinType' => $builtinType,
+            'nullable' => false,
+            'class' => null,
+            'collection' => false,
+            'collectionKeyType' => [],
+            'collectionValueType' => [],
+        ] as $propertyName => $value) {
+            $property = $reflection->getProperty($propertyName);
+            $property->setValue($type, $value);
+        }
+
+        return $type;
     }
 }
 
@@ -215,7 +287,7 @@ class TIETestDto
     public \DateTime $createdAt;
     public AuthorDtoTypeInfo $author;
 
-    /** @var string[] */
+    /** @var string[] Item labels */
     public array $items;
 
     public string $publicProperty;
@@ -225,4 +297,58 @@ class AuthorDtoTypeInfo
 {
     public string $name;
     public string $email;
+}
+
+class ThrowingPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+    public function getTypes(string $class, string $property, array $context = []): ?array
+    {
+        throw new \RuntimeException('boom');
+    }
+
+    public function isReadable(string $class, string $property, array $context = []): ?bool
+    {
+        throw new \RuntimeException('boom');
+    }
+}
+
+class NullTypesPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+    public function getTypes(string $class, string $property, array $context = []): ?array
+    {
+        return null;
+    }
+
+    public function getShortDescription(string $class, string $property, array $context = []): ?string
+    {
+        return 'Synthetic description';
+    }
+}
+
+class NullAccessPropertyInfoExtractor extends \Symfony\Component\PropertyInfo\PropertyInfoExtractor
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
+    public function isReadable(string $class, string $property, array $context = []): ?bool
+    {
+        return null;
+    }
+
+    public function isWritable(string $class, string $property, array $context = []): ?bool
+    {
+        return null;
+    }
 }

@@ -121,4 +121,40 @@ class SchemaRegistryTest extends TestCase
         $schemas = $this->registry->getSchemas();
         $this->assertCount(2, $schemas);
     }
+
+    public function testNameConflictHandlingFallsBackToFlattenedFullClassNameWhenPrefixAlsoConflicts(): void
+    {
+        $this->registry->register('App\\DTO\\UserDto', ['type' => 'object']);
+        $this->registry->register('App\\Entity\\UserDto', ['type' => 'object']);
+
+        $ref = $this->registry->register('Domain\\Entity\\UserDto', ['type' => 'object']);
+
+        $this->assertSame('#/components/schemas/DomainEntityUserDto', $ref);
+        $this->assertArrayHasKey('DomainEntityUserDto', $this->registry->getSchemas());
+    }
+
+    public function testGetSchemaNameReturnsCachedMapping(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className): string => $this->getSchemaName($className),
+            $this->registry,
+            SchemaRegistry::class,
+        );
+
+        $this->assertSame('UserDto', $resolver('App\\DTO\\UserDto'));
+        $this->assertSame('UserDto', $resolver('App\\DTO\\UserDto'));
+    }
+
+    public function testGetSchemaNameHandlesConflictingGlobalClassName(): void
+    {
+        $resolver = \Closure::bind(
+            fn (string $className): string => $this->getSchemaName($className),
+            $this->registry,
+            SchemaRegistry::class,
+        );
+
+        $resolver('App\\DTO\\UserDto');
+
+        $this->assertSame('UserDto', $resolver('UserDto'));
+    }
 }

@@ -326,6 +326,69 @@ class OpenApiGeneratorTest extends TestCase
         $this->assertArrayHasKey('/api/users', $result['paths']);
     }
 
+    public function testGenerateIncludesControllerClassPhpDocAsRootTags(): void
+    {
+        $route = new Route('/api/users', ['_controller' => DocumentedUsersController::class.'::index']);
+
+        $routes = [
+            'app_users' => [
+                'route' => $route,
+                'controller' => DocumentedUsersController::class,
+                'method' => 'index',
+                'reflection' => new \ReflectionMethod(DocumentedUsersController::class, 'index'),
+            ],
+        ];
+
+        $this->routeDescriber->expects($this->once())
+            ->method('describe')
+            ->willReturn($routes);
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+
+        $this->operationDescriber->expects($this->once())
+            ->method('describe')
+            ->willReturn(['summary' => 'List users']);
+
+        $result = $this->generator->generate();
+
+        $this->assertArrayHasKey('tags', $result);
+        $this->assertSame('DocumentedUsers', $result['tags'][0]['name']);
+        $this->assertSame("Users APIs.\n\nOperations related to users.", $result['tags'][0]['description']);
+    }
+
+    public function testGenerateDeduplicatesRootTagsForSameController(): void
+    {
+        $routes = [
+            'app_users_index' => [
+                'route' => new Route('/api/users', ['_controller' => DocumentedUsersController::class.'::index']),
+                'controller' => DocumentedUsersController::class,
+                'method' => 'index',
+                'reflection' => new \ReflectionMethod(DocumentedUsersController::class, 'index'),
+            ],
+            'app_users_show' => [
+                'route' => new Route('/api/users/{id}', ['_controller' => DocumentedUsersController::class.'::show']),
+                'controller' => DocumentedUsersController::class,
+                'method' => 'show',
+                'reflection' => new \ReflectionMethod(DocumentedUsersController::class, 'show'),
+            ],
+        ];
+
+        $this->routeDescriber->expects($this->once())
+            ->method('describe')
+            ->willReturn($routes);
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+
+        $this->operationDescriber->expects($this->exactly(2))
+            ->method('describe')
+            ->willReturn(['summary' => 'ok']);
+
+        $result = $this->generator->generate();
+
+        $this->assertCount(1, $result['tags']);
+        $this->assertSame('DocumentedUsers', $result['tags'][0]['name']);
+    }
+
     public function testGenerateHandlesOperationDescriberError(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
@@ -414,5 +477,21 @@ class OpenApiGeneratorTest extends TestCase
             });
 
         $generator->generate();
+    }
+}
+
+/**
+ * Users APIs.
+ *
+ * Operations related to users.
+ */
+class DocumentedUsersController
+{
+    public function index(): void
+    {
+    }
+
+    public function show(): void
+    {
     }
 }
