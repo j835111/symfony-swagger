@@ -78,6 +78,14 @@ class DocBlockDescriptionExtractorTest extends TestCase
 
         $this->assertSame('DTO summary only.', DocBlockDescriptionExtractor::getSchemaDescription($reflection));
     }
+
+    public function testGetSummaryAndOperationDescriptionPreserveUtf8Characters(): void
+    {
+        $reflection = new \ReflectionMethod(DocBlockDescriptionFixture::class, 'withUtf8Description');
+
+        $this->assertSame('中文摘要。', DocBlockDescriptionExtractor::getSummary($reflection));
+        $this->assertSame('第一行說明。', DocBlockDescriptionExtractor::getOperationDescription($reflection));
+    }
 }
 
 class DocBlockDescriptionFixture
@@ -126,6 +134,15 @@ class DocBlockDescriptionFixture
      *                continued detail
      */
     public function withContinuationOnly(int $id): void
+    {
+    }
+
+    /**
+     * 中文摘要。
+     *
+     * 第一行說明。
+     */
+    public function withUtf8Description(): void
     {
     }
 

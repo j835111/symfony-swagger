@@ -64,17 +64,7 @@ final class DocBlockDescriptionExtractor
             ];
         }
 
-        $lines = preg_split('/\R/', $docComment);
-        if (false === $lines) {
-            return [
-                'summary' => null,
-                'body' => null,
-                'longDescription' => null,
-                'explicitDescription' => null,
-                'tagDescription' => null,
-                'parameters' => [],
-            ];
-        }
+        $lines = self::splitLines($docComment);
 
         $normalizedLines = [];
         $lastIndex = \count($lines) - 1;
@@ -189,5 +179,13 @@ final class DocBlockDescriptionExtractor
         $text = trim($text);
 
         return '' === $text ? null : $text;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function splitLines(string $text): array
+    {
+        return explode("\n", str_replace(["\r\n", "\r"], "\n", $text));
     }
 }
