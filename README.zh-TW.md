@@ -1,42 +1,42 @@
 # Symfony Swagger Bundle
 
-**Language:** English | [繁體中文](README.zh-TW.md)
+**語言：** [English](README.md) | 繁體中文
 
-A Symfony bundle that automatically generates Swagger/OpenAPI 3.1 documentation from Symfony controller attributes.
+這是一個 Symfony bundle，可從 Symfony controller attributes 自動產生 Swagger/OpenAPI 3.1 文件。
 
-## Features
+## 功能特色
 
-- Generate OpenAPI 3.1 documents automatically.
-- Read Symfony controller attributes such as `#[Route]`, `#[MapRequestPayload]`, `#[MapQueryParameter]`, `#[MapQueryString]`, and `#[MapUploadedFile]`.
-- Generate schemas from DTOs, union types, nullable types, enums, docblocks, Doctrine ORM attributes, and JMS serializer type hints.
-- Provide built-in documentation endpoints for OpenAPI JSON, Swagger UI, and Scalar API Reference.
-- Support request-level caching and Symfony Cache.
-- Detect circular schema references.
-- Add security schemes for endpoints using `#[IsGranted]`.
-- Customize response metadata with `#[ApiResponse]`.
+- 自動產生 OpenAPI 3.1 規格文件。
+- 讀取 Symfony controller attributes，例如 `#[Route]`、`#[MapRequestPayload]`、`#[MapQueryParameter]`、`#[MapQueryString]`、`#[MapUploadedFile]`。
+- 從 DTO、union types、nullable types、enum、docblock、Doctrine ORM attributes、JMS serializer type hints 產生 schema。
+- 內建 OpenAPI JSON、Swagger UI、Scalar API Reference 文件端點。
+- 支援 request-level cache 與 Symfony Cache。
+- 偵測循環 schema 參照。
+- 針對使用 `#[IsGranted]` 的 endpoint 加入 security schemes。
+- 可使用 `#[ApiResponse]` 自訂 response metadata。
 
-## Requirements
+## 系統需求
 
 - PHP >= 8.2
-- Symfony ^6.0 or ^7.0
+- Symfony ^6.0 或 ^7.0
 
-## Installation
+## 安裝
 
-Install the bundle with Composer:
+使用 Composer 安裝：
 
 ```bash
 composer require j835111/symfony-swagger-bundle
 ```
 
-The bundle automatically:
+Bundle 會自動：
 
-- loads default configuration, so a config file is optional;
-- registers built-in documentation routes:
+- 載入預設設定，因此設定檔是選填的；
+- 註冊內建文件路由：
   - `/api/docs.json`
   - `/api/docs`
   - `/api/docs/scalar`
 
-If you are not using Symfony Flex, register the bundle manually:
+如果你沒有使用 Symfony Flex，請手動註冊 bundle：
 
 ```php
 // config/bundles.php
@@ -46,9 +46,9 @@ return [
 ];
 ```
 
-## Configuration
+## 設定
 
-The bundle works with defaults out of the box. To customize it, create `config/packages/symfony_swagger.yaml`:
+Bundle 預設即可運作。若需要自訂設定，建立 `config/packages/symfony_swagger.yaml`：
 
 ```yaml
 symfony_swagger:
@@ -85,22 +85,22 @@ symfony_swagger:
                 scheme: bearer
 ```
 
-## Usage
+## 使用方式
 
-After installation, the documentation endpoints are available immediately:
+安裝後，文件端點會立即可用：
 
 ```bash
 curl https://your-app.example/api/docs.json
 ```
 
-Open the interactive documentation pages in a browser:
+也可以在瀏覽器開啟互動式文件：
 
-- Swagger UI: `https://your-app.example/api/docs`
-- Scalar API Reference: `https://your-app.example/api/docs/scalar`
+- Swagger UI：`https://your-app.example/api/docs`
+- Scalar API Reference：`https://your-app.example/api/docs/scalar`
 
-## Custom Documentation Controller
+## 自訂文件 Controller
 
-If you need a custom endpoint, inject `OpenApiGenerator` into your own controller:
+如果需要自訂文件 endpoint，可以在自己的 controller 注入 `OpenApiGenerator`：
 
 ```php
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -122,9 +122,9 @@ final class DocumentationController
 }
 ```
 
-## Controller Example
+## Controller 範例
 
-The bundle inspects Symfony controller attributes and method signatures:
+Bundle 會分析 Symfony controller attributes 與 method signature：
 
 ```php
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
@@ -138,7 +138,7 @@ final class PostController
         #[MapQueryParameter] int $page = 1,
         #[MapQueryParameter] int $limit = 10,
     ): PostCollection {
-        // Generates:
+        // 產生：
         // - path: /api/posts
         // - method: GET
         // - query parameters: page, limit
@@ -149,7 +149,7 @@ final class PostController
     public function create(
         #[MapRequestPayload] CreatePostDto $dto,
     ): Post {
-        // Generates:
+        // 產生：
         // - requestBody schema: CreatePostDto
         // - response schema: Post
     }
@@ -157,7 +157,7 @@ final class PostController
     #[Route('/api/posts/{id}', methods: ['GET'])]
     public function show(int $id): Post
     {
-        // Generates:
+        // 產生：
         // - path parameter: id
         // - response schema: Post
     }
@@ -166,7 +166,7 @@ final class PostController
 
 ## Response Metadata
 
-Use `#[ApiResponse]` when the return type is not enough to describe the API response:
+當 return type 不足以描述 API response 時，可以使用 `#[ApiResponse]`：
 
 ```php
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -188,12 +188,12 @@ final class UserController
     #[ApiResponse(file: true, fileMediaType: 'text/csv')]
     public function export(): BinaryFileResponse
     {
-        // Generates a binary file response schema.
+        // 產生 binary file response schema。
     }
 }
 ```
 
-## DTO Example
+## DTO 範例
 
 ```php
 final class CreatePostDto
@@ -215,36 +215,36 @@ enum Status: string
 }
 ```
 
-The generated schema includes required fields, nullable fields, enum values, nested DTO references, and array item types inferred from docblocks.
+產生的 schema 會包含 required fields、nullable fields、enum values、巢狀 DTO references，以及從 docblock 推導出的 array item types。
 
-## Development
+## 開發
 
-Install dependencies:
+安裝相依套件：
 
 ```bash
 composer install
 ```
 
-Run tests:
+執行測試：
 
 ```bash
 vendor/bin/phpunit
 ```
 
-Run static analysis and style checks:
+執行靜態分析與程式碼風格檢查：
 
 ```bash
 vendor/bin/phpstan analyse
 vendor/bin/php-cs-fixer fix --dry-run --diff
 ```
 
-Or run the project analysis script:
+或執行專案分析 script：
 
 ```bash
 composer analyze
 ```
 
-## Project Structure
+## 目錄結構
 
 ```text
 symfony-swagger/
@@ -265,15 +265,15 @@ symfony-swagger/
 └── composer.json
 ```
 
-## Contributing
+## 貢獻
 
-Issues and pull requests are welcome.
+歡迎提交 issue 和 pull request。
 
-## License
+## 授權
 
 MIT License
 
-## Links
+## 相關連結
 
 - [Symfony Documentation](https://symfony.com/doc/current/index.html)
 - [OpenAPI Specification](https://swagger.io/specification/)
