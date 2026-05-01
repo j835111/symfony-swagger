@@ -5,7 +5,7 @@
 **Branch:** main
 
 ## OVERVIEW
-Symfony bundle for automatic Swagger/OpenAPI 3.1 documentation generation from Symfony controller attributes. Supports PHP >=8.2 with Symfony 6/7/8.
+Symfony bundle for automatic Swagger/OpenAPI 3.1 documentation generation from Symfony controller attributes. Supports PHP >=8.2 with Symfony 6/7.
 
 ## STRUCTURE
 ```
@@ -58,9 +58,8 @@ symfony-swagger/
 ## CONVENTIONS (THIS PROJECT)
 - **PSR-4**: `SymfonySwagger\` -> `src/`, `SymfonySwagger\Tests\` -> `tests/`.
 - **PHP**: >=8.2, with `declare(strict_types=1);`.
-- **Symfony**: Composer allows Symfony `^6.0|^7.0|^8.0`; CI currently tests Symfony `6.4.*`, `7.0.*`, and `8.0.*`.
-- **CI PHP matrix**: PHP `8.2`/`8.3` for Symfony 6/7, plus PHP `8.4` for Symfony `8.0.*`; PHP 8.1 is not supported.
-- **Symfony 8**: Symfony 8.0 requires PHP 8.4 or higher.
+- **Symfony**: Composer allows Symfony `^6.0|^7.0`; CI currently tests Symfony `6.4.*` and `7.0.*`.
+- **CI PHP matrix**: PHP `8.2` and `8.3` only; PHP 8.1 is not supported.
 - **Config**: PHP-style service and route files. Bundle config key is `symfony_swagger`.
 - **Routing**: Prefer PHP attributes such as `#[Route]`, `#[MapRequestPayload]`, `#[MapQueryParameter]`, `#[MapQueryString]`, and `#[MapUploadedFile]`.
 - **Responses**: Use `SymfonySwagger\Attribute\ApiResponse` for explicit response DTO/file metadata.

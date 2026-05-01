@@ -18,9 +18,7 @@ A Symfony bundle that automatically generates Swagger/OpenAPI 3.1 documentation 
 ## Requirements
 
 - PHP >= 8.2
-- Symfony ^6.0, ^7.0, or ^8.0
-
-Symfony 8.0 requires PHP 8.4 or higher.
+- Symfony ^6.0 or ^7.0
 
 ## Installation
 
