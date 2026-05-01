@@ -14,7 +14,7 @@
         "issues": "https://github.com/j835111/symfony-swagger-bundle/issues"
     },
     "require": {
-        "php": ">=8.1",
+        "php": ">=8.2",
         "psr/log": "^3.0",
         "symfony/framework-bundle": "^6.0|^7.0",
         "symfony/http-kernel": "^6.0|^7.0",

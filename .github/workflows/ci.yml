@@ -13,17 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.1', '8.2', '8.3']
+        php-version: ['8.2', '8.3']
         symfony-version: ['6.4.*', '7.0.*']
-        include:
-          - php-version: '8.1'
-            symfony-version: '6.4.*'
-            dependencies: 'lowest'
-        exclude:
-          - php-version: '8.1'
-            symfony-version: '7.0.*'
-          - php-version: '8.1'
-            symfony-version: '6.4.*'
 
     steps:
       - name: Checkout code
@@ -43,7 +34,7 @@ jobs:
       - name: Install dependencies
         uses: ramsey/composer-install@v3
         with:
-          dependency-versions: ${{ matrix.dependencies || 'highest' }}
+          dependency-versions: highest
 
       - name: Run PHP CS Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
