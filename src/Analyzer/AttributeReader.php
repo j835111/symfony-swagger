@@ -171,11 +171,14 @@ class AttributeReader
             return [];
         }
 
-        $attributes = $method->getAttributes('Symfony\Component\Security\Http\Attribute\IsGranted', \ReflectionAttribute::IS_INSTANCEOF);
+        $classAttributes = $method
+            ->getDeclaringClass()
+            ->getAttributes('Symfony\Component\Security\Http\Attribute\IsGranted', \ReflectionAttribute::IS_INSTANCEOF);
+        $methodAttributes = $method->getAttributes('Symfony\Component\Security\Http\Attribute\IsGranted', \ReflectionAttribute::IS_INSTANCEOF);
 
         return array_map(
             fn (\ReflectionAttribute $attr) => $attr->newInstance(),
-            $attributes,
+            array_merge($classAttributes, $methodAttributes),
         );
     }
 

@@ -88,12 +88,21 @@ class OpenApiGenerator
             $doc['tags'] = $tags;
         }
 
-        // 加入 components/schemas
+        // 加入 components
+        $components = [];
+
         $schemas = $this->schemaRegistry->getSchemas();
         if (!empty($schemas)) {
-            $doc['components'] = [
-                'schemas' => $schemas,
-            ];
+            $components['schemas'] = $schemas;
+        }
+
+        $securitySchemes = $this->generateSecuritySchemes();
+        if (!empty($securitySchemes)) {
+            $components['securitySchemes'] = $securitySchemes;
+        }
+
+        if (!empty($components)) {
+            $doc['components'] = $components;
         }
 
         // 儲存到 L1 快取
@@ -127,6 +136,46 @@ class OpenApiGenerator
     }
 
     /**
+     * 生成 components/securitySchemes 區塊.
+     *
+     * @return array<string, mixed>
+     */
+    private function generateSecuritySchemes(): array
+    {
+        if (false === ($this->config['security']['enabled'] ?? true)) {
+            return [];
+        }
+
+        $securitySchemes = $this->config['security']['security_schemes'] ?? [
+            'defaultAuth' => [
+                'type' => 'http',
+                'scheme' => 'bearer',
+            ],
+        ];
+
+        if (!\is_array($securitySchemes)) {
+            return [];
+        }
+
+        $defaultScheme = $this->getDefaultSecuritySchemeName();
+        if (!isset($securitySchemes[$defaultScheme])) {
+            $securitySchemes[$defaultScheme] = [
+                'type' => 'http',
+                'scheme' => 'bearer',
+            ];
+        }
+
+        return $securitySchemes;
+    }
+
+    private function getDefaultSecuritySchemeName(): string
+    {
+        $defaultScheme = $this->config['security']['default_scheme'] ?? 'defaultAuth';
+
+        return \is_string($defaultScheme) && '' !== $defaultScheme ? $defaultScheme : 'defaultAuth';
+    }
+
+    /**
      * 生成 paths 與根層 tags 區塊.
      *
      * @param array<string, array<string, mixed>> $routes
@@ -155,7 +204,7 @@ class OpenApiGenerator
 
                 // 生成 Operation
                 try {
-                    $operation = $this->operationDescriber->describe($reflection, $route);
+                    $operation = $this->operationDescriber->describe($reflection, $route, $method);
                     $paths[$path][$httpMethod] = $operation;
                     $tag = $this->generateTagDefinition($reflection->getDeclaringClass());
                     $tags[$tag['name']] = $tag;

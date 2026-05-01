@@ -29,3 +29,12 @@ symfony_swagger:
     analysis:
         max_depth: 5  # DTO 遞迴分析最大深度
         include_internal_routes: false  # 是否包含內部路由(_profiler, _wdt 等)
+
+    # Security 設定: endpoint 使用 #[IsGranted] 時會套用預設 scheme
+    security:
+        enabled: true
+        default_scheme: defaultAuth
+        security_schemes:
+            defaultAuth:
+                type: http
+                scheme: bearer

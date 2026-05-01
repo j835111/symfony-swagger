@@ -58,6 +58,41 @@ class ConfigurationTest extends TestCase
         $this->assertFalse($config['analysis']['include_internal_routes']);
     }
 
+    public function testSecurityDefaults(): void
+    {
+        $processor = new Processor();
+        $config = $processor->processConfiguration($this->configuration, []);
+
+        $this->assertTrue($config['security']['enabled']);
+        $this->assertSame('defaultAuth', $config['security']['default_scheme']);
+        $this->assertSame(
+            ['type' => 'http', 'scheme' => 'bearer'],
+            $config['security']['security_schemes']['defaultAuth'],
+        );
+    }
+
+    public function testSecurityConfiguration(): void
+    {
+        $input = [
+            'security' => [
+                'default_scheme' => 'apiKeyAuth',
+                'security_schemes' => [
+                    'apiKeyAuth' => [
+                        'type' => 'apiKey',
+                        'in' => 'header',
+                        'name' => 'X-API-Key',
+                    ],
+                ],
+            ],
+        ];
+
+        $processor = new Processor();
+        $config = $processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('apiKeyAuth', $config['security']['default_scheme']);
+        $this->assertSame('apiKey', $config['security']['security_schemes']['apiKeyAuth']['type']);
+    }
+
     public function testServersConfiguration(): void
     {
         $input = [

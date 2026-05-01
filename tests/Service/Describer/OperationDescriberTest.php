@@ -55,6 +55,172 @@ class OperationDescriberTest extends TestCase
         $this->assertArrayHasKey('responses', $result);
     }
 
+    public function testDescribeWithMethodSecurityAttributeAddsSecurityRequirement(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'secured');
+        $route = new Route('/api/secured');
+
+        $result = $this->describer->describe($method, $route, 'GET');
+
+        $this->assertSame([['defaultAuth' => []]], $result['security']);
+    }
+
+    public function testDescribeWithClassSecurityAttributeAddsSecurityRequirement(): void
+    {
+        $method = new \ReflectionMethod(TestClassSecuredController::class, 'index');
+        $route = new Route('/api/secured');
+
+        $result = $this->describer->describe($method, $route, 'GET');
+
+        $this->assertSame([['defaultAuth' => []]], $result['security']);
+    }
+
+    public function testDescribeUsesConfiguredDefaultSecurityScheme(): void
+    {
+        $describer = new OperationDescriber(
+            $this->attributeReader,
+            $this->typeAnalyzer,
+            $this->schemaDescriber,
+            ['security' => ['default_scheme' => 'sessionAuth']],
+        );
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'secured');
+        $route = new Route('/api/secured');
+
+        $result = $describer->describe($method, $route, 'GET');
+
+        $this->assertSame([['sessionAuth' => []]], $result['security']);
+    }
+
+    public function testDescribeDoesNotAddSecurityWhenDisabled(): void
+    {
+        $describer = new OperationDescriber(
+            $this->attributeReader,
+            $this->typeAnalyzer,
+            $this->schemaDescriber,
+            ['security' => ['enabled' => false]],
+        );
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'secured');
+        $route = new Route('/api/secured');
+
+        $result = $describer->describe($method, $route, 'GET');
+
+        $this->assertArrayNotHasKey('security', $result);
+    }
+
+    public function testDescribeHonorsSecurityAttributeMethodFilter(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'writeOnly');
+        $route = new Route('/api/write-only', methods: ['GET', 'POST']);
+
+        $getResult = $this->describer->describe($method, $route, 'GET');
+        $postResult = $this->describer->describe($method, $route, 'POST');
+
+        $this->assertArrayNotHasKey('security', $getResult);
+        $this->assertSame([['defaultAuth' => []]], $postResult['security']);
+    }
+
+    public function testDescribeInfersSingleRouteMethodForSecurityAttributeMethodFilter(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'writeOnly');
+        $route = new Route('/api/write-only', methods: ['POST']);
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertSame([['defaultAuth' => []]], $result['security']);
+    }
+
+    public function testDescribeAppliesSecurityWhenMethodFilterCannotBeResolved(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'writeOnly');
+        $route = new Route('/api/write-only', methods: ['GET', 'POST']);
+
+        $result = $this->describer->describe($method, $route);
+
+        $this->assertSame([['defaultAuth' => []]], $result['security']);
+    }
+
+    public function testDescribeHonorsStringSecurityAttributeMethodFilter(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'postOnlyStringMethod');
+        $route = new Route('/api/post-only', methods: ['GET', 'POST']);
+
+        $getResult = $this->describer->describe($method, $route, 'GET');
+        $postResult = $this->describer->describe($method, $route, 'POST');
+
+        $this->assertArrayNotHasKey('security', $getResult);
+        $this->assertSame([['defaultAuth' => []]], $postResult['security']);
+    }
+
+    public function testDescribeDoesNotMarkPublicAccessEndpointAsSecured(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'publicAccess');
+        $route = new Route('/api/public');
+
+        $result = $this->describer->describe($method, $route, 'GET');
+
+        $this->assertArrayNotHasKey('security', $result);
+    }
+
+    public function testDescribeDoesNotMarkPublicAccessArrayEndpointAsSecured(): void
+    {
+        $method = new \ReflectionMethod(TestControllerWithSecurity::class, 'publicAccessArray');
+        $route = new Route('/api/public-array');
+
+        $result = $this->describer->describe($method, $route, 'GET');
+
+        $this->assertArrayNotHasKey('security', $result);
+    }
+
+    public function testSecurityAttributeWithoutMethodsPropertyApplies(): void
+    {
+        $resolver = \Closure::bind(
+            fn (object $attribute): bool => $this->securityAttributeAppliesToMethod($attribute, 'GET'),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $this->assertTrue($resolver(new class () {
+        }));
+    }
+
+    public function testSecurityAttributeWithUnsupportedMethodsPropertyApplies(): void
+    {
+        $resolver = \Closure::bind(
+            fn (object $attribute): bool => $this->securityAttributeAppliesToMethod($attribute, 'GET'),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $this->assertTrue($resolver(new class () {
+            public int $methods = 1;
+        }));
+    }
+
+    public function testSecurityAttributeWithoutAttributePropertyIsNotPublicAccess(): void
+    {
+        $resolver = \Closure::bind(
+            fn (object $attribute): bool => $this->isPublicAccessSecurityAttribute($attribute),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $this->assertFalse($resolver(new class () {
+        }));
+    }
+
+    public function testSecurityAttributeWithUnsupportedAttributePropertyIsNotPublicAccess(): void
+    {
+        $resolver = \Closure::bind(
+            fn (object $attribute): bool => $this->isPublicAccessSecurityAttribute($attribute),
+            $this->describer,
+            OperationDescriber::class,
+        );
+
+        $this->assertFalse($resolver(new class () {
+            public int $attribute = 1;
+        }));
+    }
+
     public function testGenerateOperationId(): void
     {
         $method = new \ReflectionMethod($this::class, 'testGenerateOperationId');
@@ -664,6 +830,48 @@ class TestControllerWithApiResponses
 {
     #[\SymfonySwagger\Attribute\ApiResponse(type: TestDtoForDescriber::class, collection: true)]
     public function collection(): array
+    {
+        return [];
+    }
+}
+
+class TestControllerWithSecurity
+{
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_USER')]
+    public function secured(): array
+    {
+        return [];
+    }
+
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_ADMIN', methods: ['POST'])]
+    public function writeOnly(): array
+    {
+        return [];
+    }
+
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_ADMIN', methods: 'POST')]
+    public function postOnlyStringMethod(): array
+    {
+        return [];
+    }
+
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('PUBLIC_ACCESS')]
+    public function publicAccess(): array
+    {
+        return [];
+    }
+
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted(['PUBLIC_ACCESS'])]
+    public function publicAccessArray(): array
+    {
+        return [];
+    }
+}
+
+#[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_ADMIN')]
+class TestClassSecuredController
+{
+    public function index(): array
     {
         return [];
     }

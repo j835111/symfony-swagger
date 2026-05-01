@@ -7,6 +7,7 @@ namespace SymfonySwagger\Tests\DependencyInjection;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use SymfonySwagger\DependencyInjection\SymfonySwaggerExtension;
+use SymfonySwagger\Service\Describer\OperationDescriber;
 use SymfonySwagger\Service\OpenApiGenerator;
 
 class SymfonySwaggerExtensionTest extends TestCase
@@ -27,5 +28,8 @@ class SymfonySwaggerExtensionTest extends TestCase
         $this->assertSame(5, $container->getParameter('symfony_swagger.analysis.max_depth'));
 
         $this->assertTrue($container->hasDefinition(OpenApiGenerator::class));
+
+        $operationDescriberArguments = $container->getDefinition(OperationDescriber::class)->getArguments();
+        $this->assertSame('%symfony_swagger.config%', $operationDescriberArguments[3]);
     }
 }

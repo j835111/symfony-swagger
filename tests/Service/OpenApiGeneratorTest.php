@@ -156,6 +156,134 @@ class OpenApiGeneratorTest extends TestCase
         $this->assertEquals($schemas, $result['components']['schemas']);
     }
 
+    public function testGenerateIncludesDefaultSecuritySchemes(): void
+    {
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+
+        $result = $this->generator->generate();
+
+        $this->assertArrayHasKey('components', $result);
+        $this->assertSame(
+            ['type' => 'http', 'scheme' => 'bearer'],
+            $result['components']['securitySchemes']['defaultAuth'],
+        );
+    }
+
+    public function testGenerateIncludesConfiguredSecuritySchemes(): void
+    {
+        $config = [
+            'info' => ['title' => 'Test', 'description' => '', 'version' => '1.0.0'],
+            'servers' => [],
+            'enabled' => true,
+            'output_path' => '/tmp/swagger.json',
+            'security' => [
+                'security_schemes' => [
+                    'apiKeyAuth' => [
+                        'type' => 'apiKey',
+                        'in' => 'header',
+                        'name' => 'X-API-Key',
+                    ],
+                ],
+            ],
+        ];
+
+        $generator = new OpenApiGenerator(
+            $this->router,
+            $this->routeDescriber,
+            $this->operationDescriber,
+            $this->schemaRegistry,
+            null,
+            $config,
+            null,
+        );
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+        $result = $generator->generate();
+
+        $this->assertSame('apiKey', $result['components']['securitySchemes']['apiKeyAuth']['type']);
+    }
+
+    public function testGenerateEnsuresDefaultSecuritySchemeExists(): void
+    {
+        $config = [
+            'info' => ['title' => 'Test', 'description' => '', 'version' => '1.0.0'],
+            'servers' => [],
+            'enabled' => true,
+            'output_path' => '/tmp/swagger.json',
+            'security' => [
+                'default_scheme' => 'sessionAuth',
+                'security_schemes' => [],
+            ],
+        ];
+
+        $generator = new OpenApiGenerator(
+            $this->router,
+            $this->routeDescriber,
+            $this->operationDescriber,
+            $this->schemaRegistry,
+            null,
+            $config,
+            null,
+        );
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+        $result = $generator->generate();
+
+        $this->assertSame('bearer', $result['components']['securitySchemes']['sessionAuth']['scheme']);
+    }
+
+    public function testGenerateOmitsSecuritySchemesWhenDisabled(): void
+    {
+        $config = [
+            'info' => ['title' => 'Test', 'description' => '', 'version' => '1.0.0'],
+            'servers' => [],
+            'enabled' => true,
+            'output_path' => '/tmp/swagger.json',
+            'security' => ['enabled' => false],
+        ];
+
+        $generator = new OpenApiGenerator(
+            $this->router,
+            $this->routeDescriber,
+            $this->operationDescriber,
+            $this->schemaRegistry,
+            null,
+            $config,
+            null,
+        );
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+        $result = $generator->generate();
+
+        $this->assertArrayNotHasKey('components', $result);
+    }
+
+    public function testGenerateOmitsInvalidSecuritySchemesConfiguration(): void
+    {
+        $config = [
+            'info' => ['title' => 'Test', 'description' => '', 'version' => '1.0.0'],
+            'servers' => [],
+            'enabled' => true,
+            'output_path' => '/tmp/swagger.json',
+            'security' => ['security_schemes' => 'invalid'],
+        ];
+
+        $generator = new OpenApiGenerator(
+            $this->router,
+            $this->routeDescriber,
+            $this->operationDescriber,
+            $this->schemaRegistry,
+            null,
+            $config,
+            null,
+        );
+
+        $this->schemaRegistry->method('getSchemas')->willReturn([]);
+        $result = $generator->generate();
+
+        $this->assertArrayNotHasKey('components', $result);
+    }
+
     public function testGenerateWithDefaultInfoValues(): void
     {
         $config = [

@@ -13,6 +13,11 @@ class IsGranted
 {
     public function __construct(
         public string|array|null $attribute = null,
+        public mixed $subject = null,
+        public ?string $message = null,
+        public ?int $statusCode = null,
+        public int $exceptionCode = 0,
+        public string|array|null $methods = null,
     ) {
     }
 }

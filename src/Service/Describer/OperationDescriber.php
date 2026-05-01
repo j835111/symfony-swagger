@@ -17,10 +17,14 @@ use SymfonySwagger\Analyzer\TypeAnalyzer;
  */
 class OperationDescriber
 {
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         private readonly AttributeReader $attributeReader,
         private readonly TypeAnalyzer $typeAnalyzer,
         private readonly SchemaDescriber $schemaDescriber,
+        private readonly array $config = [],
     ) {
     }
 
@@ -29,7 +33,7 @@ class OperationDescriber
      *
      * @return array<string, mixed>
      */
-    public function describe(\ReflectionMethod $method, Route $route): array
+    public function describe(\ReflectionMethod $method, Route $route, ?string $httpMethod = null): array
     {
         $operation = [
             'summary' => $this->generateSummary($method),
@@ -54,10 +58,115 @@ class OperationDescriber
             $operation['requestBody'] = $requestBody;
         }
 
+        // Security
+        $security = $this->describeSecurity($method, $route, $httpMethod);
+        if (null !== $security) {
+            $operation['security'] = $security;
+        }
+
         // Responses
         $operation['responses'] = $this->describeResponses($method);
 
         return $operation;
+    }
+
+    /**
+     * @return list<array<string, list<string>>>|null
+     */
+    private function describeSecurity(\ReflectionMethod $method, Route $route, ?string $httpMethod): ?array
+    {
+        if (false === ($this->config['security']['enabled'] ?? true)) {
+            return null;
+        }
+
+        $securityAttributes = $this->attributeReader->readSecurityAttributes($method);
+        if (empty($securityAttributes)) {
+            return null;
+        }
+
+        $operationMethod = $this->resolveOperationHttpMethod($route, $httpMethod);
+        foreach ($securityAttributes as $attribute) {
+            if (!$this->securityAttributeAppliesToMethod($attribute, $operationMethod)) {
+                continue;
+            }
+
+            if ($this->isPublicAccessSecurityAttribute($attribute)) {
+                continue;
+            }
+
+            return [
+                [
+                    $this->getDefaultSecuritySchemeName() => [],
+                ],
+            ];
+        }
+
+        return null;
+    }
+
+    private function isPublicAccessSecurityAttribute(object $attribute): bool
+    {
+        if (!property_exists($attribute, 'attribute')) {
+            return false;
+        }
+
+        $securityAttribute = $attribute->attribute;
+        if (\is_string($securityAttribute)) {
+            return 'PUBLIC_ACCESS' === $securityAttribute;
+        }
+
+        if (\is_array($securityAttribute)) {
+            return \in_array('PUBLIC_ACCESS', $securityAttribute, true);
+        }
+
+        return false;
+    }
+
+    private function resolveOperationHttpMethod(Route $route, ?string $httpMethod): ?string
+    {
+        if (null !== $httpMethod) {
+            return strtoupper($httpMethod);
+        }
+
+        $methods = $route->getMethods();
+        if (1 === \count($methods)) {
+            return strtoupper($methods[0]);
+        }
+
+        return null;
+    }
+
+    private function securityAttributeAppliesToMethod(object $attribute, ?string $httpMethod): bool
+    {
+        if (!property_exists($attribute, 'methods')) {
+            return true;
+        }
+
+        $methods = $attribute->methods;
+        if (null === $methods || [] === $methods) {
+            return true;
+        }
+
+        if (null === $httpMethod) {
+            return true;
+        }
+
+        if (\is_string($methods)) {
+            return strtoupper($methods) === $httpMethod;
+        }
+
+        if (\is_array($methods)) {
+            return \in_array($httpMethod, array_map('strtoupper', $methods), true);
+        }
+
+        return true;
+    }
+
+    private function getDefaultSecuritySchemeName(): string
+    {
+        $defaultScheme = $this->config['security']['default_scheme'] ?? 'defaultAuth';
+
+        return \is_string($defaultScheme) && '' !== $defaultScheme ? $defaultScheme : 'defaultAuth';
     }
 
     /**

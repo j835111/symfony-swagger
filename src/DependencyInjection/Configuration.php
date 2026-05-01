@@ -60,6 +60,22 @@ class Configuration implements ConfigurationInterface
                         ->booleanNode('include_internal_routes')->defaultFalse()->end()
                     ->end()
                 ->end()
+                ->arrayNode('security')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')->defaultTrue()->end()
+                        ->scalarNode('default_scheme')->defaultValue('defaultAuth')->end()
+                        ->arrayNode('security_schemes')
+                            ->defaultValue([
+                                'defaultAuth' => [
+                                    'type' => 'http',
+                                    'scheme' => 'bearer',
+                                ],
+                            ])
+                            ->variablePrototype()->end()
+                        ->end()
+                    ->end()
+                ->end()
             ->end()
         ;
 

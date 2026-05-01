@@ -46,6 +46,7 @@ return static function (ContainerConfigurator $container): void {
             service(AttributeReader::class),
             service(TypeAnalyzer::class),
             service(SchemaDescriber::class),
+            param('symfony_swagger.config'),
         ])
     ;
 
